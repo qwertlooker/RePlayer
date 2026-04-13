@@ -14,17 +14,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Configure (Debug)
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build (Debug)
+        run: cmake --build build --config Debug
+
+      - name: Test (Debug)
+        run: ctest --test-dir build -C Debug --output-on-failure
+
       - name: Configure (Release)
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build-release -G "Visual Studio 17 2022" -A x64 -DREPLAYER_ENABLE_STATIC_CRT=OFF
 
       - name: Build (Release)
-        run: cmake --build build --config Release
+        run: cmake --build build-release --config Release
 
-      - name: Collect artifacts
+      - name: Install package layout
+        run: cmake --install build-release --config Release --prefix out
+
+      - name: Verify package layout
         shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path out -Force | Out-Null
-          Copy-Item "build/Release/RePlayer.exe" "out/RePlayer.exe"
+        run: .\scripts\verify_package.ps1 -PackageRoot .\out
 
       - name: Package zip
         shell: pwsh
