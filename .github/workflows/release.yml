@@ -1,0 +1,70 @@
+name: Build and Release Windows Portable
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install VLC runtime
+        shell: pwsh
+        run: |
+          choco install vlc --no-progress -y
+          $vlcPath = "C:\Program Files\VideoLAN\VLC"
+          if (-not (Test-Path $vlcPath)) {
+            throw "VLC install failed: $vlcPath not found"
+          }
+          "VLC_PATH=$vlcPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build portable exe
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name RePlayer `
+            --add-binary "$env:VLC_PATH\libvlc.dll;." `
+            --add-binary "$env:VLC_PATH\libvlccore.dll;." `
+            --add-data "$env:VLC_PATH\plugins;plugins" `
+            main.py
+
+      - name: Create release zip
+        shell: pwsh
+        run: |
+          $tag = if ($env:GITHUB_REF.StartsWith('refs/tags/')) { $env:GITHUB_REF.Substring(10) } else { "manual-${{ github.run_number }}" }
+          $zipName = "RePlayer-$tag-windows-x64.zip"
+          Compress-Archive -Path dist\RePlayer.exe -DestinationPath $zipName -Force
+          "ASSET_NAME=$zipName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RePlayer-portable-windows
+          path: |
+            dist/RePlayer.exe
+            ${{ env.ASSET_NAME }}
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET_NAME }}
+          generate_release_notes: true
