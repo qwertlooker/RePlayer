@@ -9,6 +9,8 @@ add_executable(RePlayer WIN32
     src/main.cpp
 )
 
+target_compile_definitions(RePlayer PRIVATE UNICODE _UNICODE)
+
 if (MSVC)
     target_compile_options(RePlayer PRIVATE /W4 /permissive-)
 else()
