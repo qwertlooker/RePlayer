@@ -9,7 +9,17 @@ call .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 pip install -r requirements.txt pyinstaller
 
-REM python-vlc needs VLC runtime dlls. Put libvlc.dll and plugins folder next to exe.
-pyinstaller --noconfirm --onefile --windowed --name RePlayer main.py
+set VLC_PATH=%ProgramFiles%\VideoLAN\VLC
+if not exist "%VLC_PATH%\libvlc.dll" (
+  echo [ERROR] VLC runtime not found: %VLC_PATH%
+  echo Please install VLC desktop first, then rerun this script.
+  exit /b 1
+)
+
+pyinstaller --noconfirm --onefile --windowed --name RePlayer ^
+  --add-binary "%VLC_PATH%\libvlc.dll;." ^
+  --add-binary "%VLC_PATH%\libvlccore.dll;." ^
+  --add-data "%VLC_PATH%\plugins;plugins" ^
+  main.py
 
 echo Build complete. See dist\RePlayer.exe

@@ -17,17 +17,18 @@
 ## B. 项目目录结构
 ```text
 RePlayer/
-├─ main.py                  # 入口
-├─ requirements.txt         # 运行依赖
-├─ build_portable.bat       # Windows 一键打包脚本
-├─ README.md                # 方案与使用说明
+├─ main.py
+├─ requirements.txt
+├─ build_portable.bat
+├─ README.md
+├─ .github/workflows/release.yml   # GitHub Action 自动构建并发布 Release
 └─ src/replayer/
    ├─ __init__.py
-   ├─ app.py                # Tkinter UI + 业务编排
-   ├─ audio.py              # VLC 播放控制
-   ├─ recording.py          # 麦克风录音
-   ├─ subtitles.py          # SRT/LRC 解析
-   └─ models.py             # 数据模型
+   ├─ app.py
+   ├─ audio.py
+   ├─ recording.py
+   ├─ subtitles.py
+   └─ models.py
 ```
 
 ## C. 依赖说明
@@ -35,8 +36,6 @@ RePlayer/
 - `sounddevice`：麦克风采集录音。
 - `simpleaudio`：播放录音 WAV 文件。
 - `tkinter`：Python 标准库 GUI（无需额外安装）。
-
-> 注意：`python-vlc` 在目标机器上需要 `libvlc.dll` 及 `plugins`（可随 exe 一起分发到同目录）。
 
 ## D. 分阶段实现计划
 1. **Phase 1（已实现）基础可用**
@@ -50,9 +49,10 @@ RePlayer/
    - 当前句录音
    - 原音片段与录音分别播放
 4. **Phase 4（已实现）便携发布**
-   - 提供 `build_portable.bat` 产出 `dist/RePlayer.exe`
+   - 本地 `build_portable.bat` 打包
+   - GitHub Action 自动构建并发布 Release（含 exe）
 
-## 运行
+## 本地运行
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
@@ -60,12 +60,23 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Windows 免安装打包
-在 Windows 命令行运行：
+## 本地 Windows 打包
 ```bat
 build_portable.bat
 ```
 产物：`dist\RePlayer.exe`
+
+## GitHub Action 自动发布（推荐）
+1. 推送代码到主干（`main`）。
+2. 打一个版本标签并推送：
+   ```bash
+   git tag v0.1.0
+   git push origin v0.1.0
+   ```
+3. Action `Build and Release Windows Portable` 会：
+   - 在 `windows-latest` 安装 Python 与 VLC runtime
+   - PyInstaller 打包 `RePlayer.exe`
+   - 自动创建 GitHub Release 并上传 `RePlayer-vX.Y.Z-windows-x64.zip`
 
 ## 当前 v1 已覆盖的需求
 - [x] 打开本地 MP3
@@ -76,4 +87,4 @@ build_portable.bat
 - [x] 句间自动暂停（可配置）
 - [x] 当前句跟读录音
 - [x] 分别播放原音与录音
-- [x] Windows 免安装（PyInstaller）
+- [x] Windows 免安装（本地/CI 打包）
