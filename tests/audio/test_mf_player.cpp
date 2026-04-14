@@ -18,7 +18,9 @@ TEST(MfPlayerTest, OpenFailsForMissingFile) {
 
 TEST(MfPlayerTest, OpensConfiguredIntegrationSampleAndSupportsBasicControls) {
     const auto sample_path = std::filesystem::path(kIntegrationSamplePath);
-    ASSERT_TRUE(std::filesystem::exists(sample_path)) << "Configured MP3 sample is missing.";
+    if (!std::filesystem::exists(sample_path)) {
+        GTEST_SKIP() << "Integration sample not found at configured path: " << sample_path;
+    }
 
     MfPlayer player;
     ASSERT_TRUE(player.Open(sample_path).Ok());
