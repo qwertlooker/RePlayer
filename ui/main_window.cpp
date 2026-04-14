@@ -77,6 +77,7 @@ MainWindow::~MainWindow() {
     if (font_mono_) DeleteObject(font_mono_);
     if (font_title_) DeleteObject(font_title_);
     if (font_caption_) DeleteObject(font_caption_);
+    if (brush_card_) DeleteObject(brush_card_);
 }
 
 Result<void> MainWindow::Create(int cmd_show) {
@@ -150,7 +151,7 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
     case WM_CTLCOLORLISTBOX: {
         HDC hdc = reinterpret_cast<HDC>(wp);
         SetBkColor(hdc, C_CARD_H); SetTextColor(hdc, C_TEXT);
-        return reinterpret_cast<LRESULT>(CreateSolidBrush(C_CARD));
+        return reinterpret_cast<LRESULT>(brush_card_);
     }
     case WM_MOUSEMOVE: UpdateHoverState(GET_X_LPARAM(wp), GET_Y_LPARAM(lp)); break;
     case WM_TIMER: if (wp == kUiTimerId) OnTimer(); return 0;
@@ -231,6 +232,7 @@ void MainWindow::CreateControls() {
     font_caption_ = CreateFontW(13, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
     font_bold_ = CreateFontW(14, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
     font_mono_ = CreateFontW(17, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_MODERN, L"Cascadia Mono");
+    brush_card_ = CreateSolidBrush(C_CARD);
 
     button_open_audio_ = Btn(hwnd_, instance_, L"Open Audio", IdOpenAudio, 108, 32);
     button_open_subtitle_ = Btn(hwnd_, instance_, L"Open Subtitle", IdOpenSubtitle, 118, 32);
@@ -301,6 +303,14 @@ void MainWindow::CreateControls() {
     set_font(combo_mode_, font_caption_);
     set_font(edit_auto_pause_, font_caption_);
     set_font(list_subtitles_, font_normal_);
+
+    HDC hdc = GetDC(list_subtitles_);
+    HFONT old_font = reinterpret_cast<HFONT>(SelectObject(hdc, font_normal_));
+    TEXTMETRICW metric{};
+    GetTextMetricsW(hdc, &metric);
+    subtitle_line_height_ = metric.tmHeight + 3;
+    SelectObject(hdc, old_font);
+    ReleaseDC(list_subtitles_, hdc);
 }
 
 void MainWindow::LayoutControls(int width, int height) {
@@ -427,8 +437,7 @@ void MainWindow::PopulateSubtitleList() {
     last_played_subtitle_row_.reset();
     SendMessageW(list_subtitles_, LB_RESETCONTENT, 0, 0);
     for (const auto& line : coordinator_->GetState().subtitles) {
-        const std::wstring display_text = FormatTimePrefix(line.start_ms) + L"  " + PrepareSubtitleTextForDisplay(line.text);
-        SendMessageW(list_subtitles_, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(display_text.c_str()));
+        SendMessageW(list_subtitles_, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L""));
     }
 }
 
@@ -482,15 +491,7 @@ int MainWindow::MeasureSubtitleItemHeight(std::size_t list_index) const {
         }
     }
 
-    HDC hdc = GetDC(list_subtitles_);
-    HFONT old_font = reinterpret_cast<HFONT>(SelectObject(hdc, font_normal_));
-    TEXTMETRICW metric{};
-    GetTextMetricsW(hdc, &metric);
-    SelectObject(hdc, old_font);
-    ReleaseDC(list_subtitles_, hdc);
-
-    const int line_height = metric.tmHeight + 3;
-    return kSubtitleLinePadding * 2 + line_height * line_count;
+    return kSubtitleLinePadding * 2 + subtitle_line_height_ * line_count;
 }
 
 void MainWindow::DrawSubtitleItem(const DRAWITEMSTRUCT& dis) {

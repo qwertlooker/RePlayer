@@ -82,6 +82,7 @@ private:
     HFONT font_mono_{nullptr};
     HFONT font_title_{nullptr};
     HFONT font_caption_{nullptr};
+    HBRUSH brush_card_{nullptr};
 
     bool is_dragging_track_{false};
     HWND hovered_button_{nullptr};
@@ -91,6 +92,7 @@ private:
     RECT rect_subtitle_card_{};
     std::optional<int> last_current_subtitle_row_{};
     std::optional<int> last_played_subtitle_row_{};
+    int subtitle_line_height_{20};
     std::unique_ptr<PlaybackCoordinator> coordinator_;
 };
 

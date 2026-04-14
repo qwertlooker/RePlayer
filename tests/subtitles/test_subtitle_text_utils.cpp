@@ -17,5 +17,11 @@ TEST(SubtitleTextUtilsTest, KeepsTextWhenTagIsNotClosed) {
     EXPECT_EQ(output, L"Hello <unfinished");
 }
 
+TEST(SubtitleTextUtilsTest, PreservesMultilineAfterRemovingTagsAndCarriageReturn) {
+    const std::wstring input = L"<i>Line 1</i>\r\nLine <b>2</b>";
+    const std::wstring output = PrepareSubtitleTextForDisplay(input);
+    EXPECT_EQ(output, L"Line 1\nLine 2");
+}
+
 } // namespace
 } // namespace replayer
