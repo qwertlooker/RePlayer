@@ -10,6 +10,7 @@
 #include "core/clock.h"
 #include "core/time_format.h"
 #include "recording/wasapi_recorder.h"
+#include "subtitles/subtitle_text_utils.h"
 #include "utils/logger.h"
 
 namespace replayer {
@@ -42,6 +43,11 @@ constexpr COLORREF C_SECONDARY     = RGB(148, 163, 184);
 constexpr COLORREF C_ACCENT_B      = RGB(29, 78, 216);
 constexpr COLORREF C_ACCENT_G      = RGB(21, 128, 61);
 constexpr COLORREF C_ACCENT_R      = RGB(185, 28, 28);
+constexpr COLORREF C_SUB_CUR_BG    = RGB(219, 234, 254);
+constexpr COLORREF C_SUB_CUR_TEXT  = RGB(30, 64, 175);
+constexpr COLORREF C_SUB_PLAYED    = RGB(148, 163, 184);
+constexpr int kSubtitleTimestampWidth = 94;
+constexpr int kSubtitleLinePadding = 7;
 HWND Btn(HWND p, HINSTANCE i, const wchar_t* t, int id, int w = 90, int h = 32) {
     return CreateWindowExW(0, WC_BUTTONW, t, WS_CHILD | WS_VISIBLE | BS_OWNERDRAW | BS_FLAT,
                            0, 0, w, h, p, reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)), i, nullptr);
@@ -188,6 +194,10 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_DRAWITEM: {
         auto* dis = reinterpret_cast<DRAWITEMSTRUCT*>(lp);
+        if (dis->CtlType == ODT_LISTBOX && dis->CtlID == IdSubtitleList) {
+            DrawSubtitleItem(*dis);
+            return TRUE;
+        }
         if (dis->CtlType == ODT_BUTTON) {
             bool hv = (dis->hwndItem == hovered_button_), pr = (dis->itemState & ODS_SELECTED), ds = (dis->itemState & ODS_DISABLED);
             COLORREF bc = C_SECONDARY;
@@ -198,6 +208,14 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
             DrawModernButton(dis->hwndItem, dis->hDC, hv, pr, ds, bc);
             return TRUE;
         } break;
+    }
+    case WM_MEASUREITEM: {
+        auto* mis = reinterpret_cast<MEASUREITEMSTRUCT*>(lp);
+        if (mis->CtlType == ODT_LISTBOX && mis->CtlID == IdSubtitleList) {
+            mis->itemHeight = static_cast<UINT>(MeasureSubtitleItemHeight(mis->itemID));
+            return TRUE;
+        }
+        break;
     }
     case WM_DESTROY: KillTimer(hwnd_, kUiTimerId); PostQuitMessage(0); return 0;
     default: break;
@@ -255,7 +273,7 @@ void MainWindow::CreateControls() {
     label_delay_text_ = Lbl(hwnd_, instance_, L"Pause(s):", 60);
     edit_auto_pause_ = Edt(hwnd_, instance_, L"1", IdAutoPauseEdit, 45);
 
-    list_subtitles_ = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | LBS_NOTIFY | WS_VSCROLL | LBS_NOINTEGRALHEIGHT,
+    list_subtitles_ = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | LBS_NOTIFY | WS_VSCROLL | LBS_NOINTEGRALHEIGHT | LBS_OWNERDRAWVARIABLE,
                                       0, 0, 400, 300, hwnd_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IdSubtitleList)), instance_, nullptr);
 
     for (auto b : {button_open_audio_, button_open_subtitle_, button_play_, button_pause_,
@@ -385,15 +403,149 @@ void MainWindow::SyncUi() {
     EnableWindow(button_record_start_, s.can_start_recording); EnableWindow(button_record_stop_, s.can_stop_recording);
     EnableWindow(button_play_recording_, s.can_play_recording);
 
-    if (s.current_subtitle_index.has_value())
-        for (int i = 0; i < static_cast<int>(s.subtitles.size()); ++i)
-            if (s.subtitles[i].index == *s.current_subtitle_index) { SendMessageW(list_subtitles_, LB_SETCURSEL, i, 0); break; }
+    const int current_row = FindSubtitleRowByIndex(s.current_subtitle_index);
+    const int played_row = FindLastPlayedSubtitleRow(s.position_ms);
+
+    if (last_current_subtitle_row_.value_or(-1) != current_row) {
+        SendMessageW(list_subtitles_, LB_SETCURSEL, current_row >= 0 ? current_row : -1, 0);
+        InvalidateSubtitleRow(last_current_subtitle_row_.value_or(-1));
+        InvalidateSubtitleRow(current_row);
+    }
+
+    if (last_played_subtitle_row_.value_or(-1) != played_row) {
+        InvalidateSubtitleRow(last_played_subtitle_row_.value_or(-1));
+        InvalidateSubtitleRow(played_row);
+        InvalidateSubtitleRow(played_row + 1);
+    }
+
+    last_current_subtitle_row_ = (current_row >= 0) ? std::optional<int>(current_row) : std::nullopt;
+    last_played_subtitle_row_ = (played_row >= 0) ? std::optional<int>(played_row) : std::nullopt;
 }
 
 void MainWindow::PopulateSubtitleList() {
+    last_current_subtitle_row_.reset();
+    last_played_subtitle_row_.reset();
     SendMessageW(list_subtitles_, LB_RESETCONTENT, 0, 0);
-    for (const auto& line : coordinator_->GetState().subtitles)
-        SendMessageW(list_subtitles_, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>((FormatTimePrefix(line.start_ms) + L"  " + line.text).c_str()));
+    for (const auto& line : coordinator_->GetState().subtitles) {
+        const std::wstring display_text = FormatTimePrefix(line.start_ms) + L"  " + PrepareSubtitleTextForDisplay(line.text);
+        SendMessageW(list_subtitles_, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(display_text.c_str()));
+    }
+}
+
+void MainWindow::InvalidateSubtitleRow(int row) const {
+    if (row < 0) {
+        return;
+    }
+    RECT rect{};
+    if (SendMessageW(list_subtitles_, LB_GETITEMRECT, static_cast<WPARAM>(row), reinterpret_cast<LPARAM>(&rect)) != LB_ERR) {
+        InvalidateRect(list_subtitles_, &rect, FALSE);
+    }
+}
+
+int MainWindow::FindSubtitleRowByIndex(std::optional<int> subtitle_index) const {
+    if (!subtitle_index.has_value()) {
+        return -1;
+    }
+    const auto& subtitles = coordinator_->GetState().subtitles;
+    for (int i = 0; i < static_cast<int>(subtitles.size()); ++i) {
+        if (subtitles[i].index == *subtitle_index) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int MainWindow::FindLastPlayedSubtitleRow(std::int64_t position_ms) const {
+    const auto& subtitles = coordinator_->GetState().subtitles;
+    int last_row = -1;
+    for (int i = 0; i < static_cast<int>(subtitles.size()); ++i) {
+        if (subtitles[i].end_ms < position_ms) {
+            last_row = i;
+            continue;
+        }
+        break;
+    }
+    return last_row;
+}
+
+int MainWindow::MeasureSubtitleItemHeight(std::size_t list_index) const {
+    const auto& subtitles = coordinator_->GetState().subtitles;
+    if (list_index >= subtitles.size()) {
+        return 32;
+    }
+
+    const std::wstring display = PrepareSubtitleTextForDisplay(subtitles[list_index].text);
+    int line_count = 1;
+    for (const wchar_t ch : display) {
+        if (ch == L'\n') {
+            ++line_count;
+        }
+    }
+
+    HDC hdc = GetDC(list_subtitles_);
+    HFONT old_font = reinterpret_cast<HFONT>(SelectObject(hdc, font_normal_));
+    TEXTMETRICW metric{};
+    GetTextMetricsW(hdc, &metric);
+    SelectObject(hdc, old_font);
+    ReleaseDC(list_subtitles_, hdc);
+
+    const int line_height = metric.tmHeight + 3;
+    return kSubtitleLinePadding * 2 + line_height * line_count;
+}
+
+void MainWindow::DrawSubtitleItem(const DRAWITEMSTRUCT& dis) {
+    if (dis.itemID == static_cast<UINT>(-1)) {
+        return;
+    }
+
+    const auto& state = coordinator_->GetState();
+    if (dis.itemID >= state.subtitles.size()) {
+        return;
+    }
+
+    const auto& line = state.subtitles[dis.itemID];
+    const bool is_current = state.current_subtitle_index.has_value() && (*state.current_subtitle_index == line.index);
+    const bool is_played = line.end_ms < state.position_ms && !is_current;
+
+    COLORREF bg_color = C_CARD;
+    COLORREF text_color = C_TEXT;
+    COLORREF time_color = C_TEXT3;
+    if (is_current) {
+        bg_color = C_SUB_CUR_BG;
+        text_color = C_SUB_CUR_TEXT;
+        time_color = C_SUB_CUR_TEXT;
+    } else if (is_played) {
+        text_color = C_SUB_PLAYED;
+        time_color = C_SUB_PLAYED;
+    }
+
+    RECT item_rect = dis.rcItem;
+    HBRUSH brush = CreateSolidBrush(bg_color);
+    FillRect(dis.hDC, &item_rect, brush);
+    DeleteObject(brush);
+
+    SetBkMode(dis.hDC, TRANSPARENT);
+    HFONT old_font = reinterpret_cast<HFONT>(SelectObject(dis.hDC, font_normal_));
+
+    RECT time_rect = item_rect;
+    time_rect.left += 8;
+    time_rect.right = time_rect.left + kSubtitleTimestampWidth;
+    SetTextColor(dis.hDC, time_color);
+    const std::wstring time_prefix = FormatTimePrefix(line.start_ms);
+    DrawTextW(dis.hDC, time_prefix.c_str(), -1, &time_rect, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_NOPREFIX);
+
+    RECT text_rect = item_rect;
+    text_rect.left = time_rect.right + 8;
+    text_rect.top += kSubtitleLinePadding;
+    text_rect.right -= 8;
+    SetTextColor(dis.hDC, text_color);
+    const std::wstring display_text = PrepareSubtitleTextForDisplay(line.text);
+    DrawTextW(dis.hDC, display_text.c_str(), -1, &text_rect, DT_LEFT | DT_TOP | DT_WORDBREAK | DT_NOPREFIX);
+
+    if ((dis.itemState & ODS_FOCUS) != 0) {
+        DrawFocusRect(dis.hDC, &item_rect);
+    }
+    SelectObject(dis.hDC, old_font);
 }
 
 void MainWindow::ShowError(const AppError& e) { MessageBoxW(hwnd_, e.message.c_str(), kMainWindowTitle, MB_OK | MB_ICONERROR); }
