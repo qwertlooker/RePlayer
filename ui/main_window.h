@@ -11,6 +11,7 @@ namespace replayer {
 class MainWindow {
 public:
     explicit MainWindow(HINSTANCE instance);
+    ~MainWindow();
 
     Result<void> Create(int cmd_show);
     HWND Handle() const noexcept;
@@ -29,6 +30,11 @@ private:
     PlaybackMode SelectedPlaybackMode() const;
     std::wstring FormatTimePrefix(std::int64_t ms) const;
 
+    static LRESULT CALLBACK ButtonProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+    void DrawModernButton(HWND hwnd, HDC hdc, bool hovered, bool pressed, bool disabled, COLORREF baseColor);
+    void DrawRoundRect(HDC hdc, int x, int y, int w, int h, int r, COLORREF fill, COLORREF border);
+    void UpdateHoverState(int x, int y);
+
     HINSTANCE instance_;
     HWND hwnd_{nullptr};
 
@@ -39,8 +45,9 @@ private:
     HWND label_time_{nullptr};
 
     HWND label_current_sentence_{nullptr};
-    HWND label_sentence_time_{nullptr};
+    HWND label_sentence_info_{nullptr};
     HWND label_sentence_index_{nullptr};
+    HWND label_sentence_time_{nullptr};
     HWND label_mode_{nullptr};
     HWND label_recording_status_{nullptr};
     HWND label_hint_{nullptr};
@@ -56,14 +63,18 @@ private:
     HWND button_play_recording_{nullptr};
     HWND track_position_{nullptr};
     HWND combo_mode_{nullptr};
+    HWND label_delay_text_{nullptr};
     HWND edit_auto_pause_{nullptr};
     HWND list_subtitles_{nullptr};
 
     HFONT font_large_{nullptr};
     HFONT font_normal_{nullptr};
     HFONT font_small_{nullptr};
+    HFONT font_bold_{nullptr};
+    HFONT font_mono_{nullptr};
 
     bool is_dragging_track_{false};
+    HWND hovered_button_{nullptr};
     std::unique_ptr<PlaybackCoordinator> coordinator_;
 };
 
