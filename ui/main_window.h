@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <windows.h>
 
 #include "core/playback_coordinator.h"
@@ -24,6 +25,11 @@ private:
     void OnTimer();
     void SyncUi();
     void PopulateSubtitleList();
+    void InvalidateSubtitleRow(int row) const;
+    int FindSubtitleRowByIndex(std::optional<int> subtitle_index) const;
+    int FindLastPlayedSubtitleRow(std::int64_t position_ms) const;
+    int MeasureSubtitleItemHeight(std::size_t list_index) const;
+    void DrawSubtitleItem(const DRAWITEMSTRUCT& dis);
     void ShowError(const AppError& error);
     std::wstring OpenFileDialog(const wchar_t* filter) const;
     PlaybackMode SelectedPlaybackMode() const;
@@ -83,6 +89,8 @@ private:
     RECT rect_sentence_card_{};
     RECT rect_controls_card_{};
     RECT rect_subtitle_card_{};
+    std::optional<int> last_current_subtitle_row_{};
+    std::optional<int> last_played_subtitle_row_{};
     std::unique_ptr<PlaybackCoordinator> coordinator_;
 };
 
