@@ -1,6 +1,7 @@
 #include "core/playback_coordinator.h"
 
 #include <algorithm>
+#include <array>
 
 namespace replayer {
 
@@ -51,11 +52,55 @@ Result<void> PlaybackCoordinator::LoadAudio(const std::filesystem::path& path) {
     }
 
     state_.audio_path = path;
+    state_.subtitle_path.clear();
+    state_.subtitles.clear();
+    state_.current_subtitle_index.reset();
+    subtitle_service_.SetLines({});
     state_.duration_ms = player_->GetDuration();
     state_.position_ms = 0;
     state_.player_state = ToVisualState(player_->GetState());
     state_.status_text = L"Audio loaded";
+    auto_subtitle_load_result_ = AutoSubtitleLoadResult::None;
     logger_->Info(L"Loaded audio: " + path.wstring());
+
+    const auto parent = path.parent_path();
+    const auto stem = path.stem().wstring();
+    const std::array<std::filesystem::path, 2> subtitle_candidates{
+        parent / (stem + L".srt"),
+        parent / (stem + L".lrc")
+    };
+
+    bool auto_subtitle_attempted = false;
+    for (const auto& candidate : subtitle_candidates) {
+        if (!std::filesystem::exists(candidate)) {
+            continue;
+        }
+
+        auto_subtitle_attempted = true;
+        const auto subtitle_result = LoadSubtitles(candidate);
+        if (subtitle_result.Ok()) {
+            auto_subtitle_load_result_ = AutoSubtitleLoadResult::Success;
+            state_.status_text = L"Audio + subtitles loaded";
+            state_.hint_text = L"Auto-loaded matching subtitles.";
+            logger_->Info(L"Auto-loaded subtitles: " + candidate.wstring());
+            break;
+        }
+
+        auto_subtitle_load_result_ = AutoSubtitleLoadResult::Failed;
+        state_.hint_text = L"Auto subtitle load failed. You can load subtitles manually.";
+        logger_->Error(L"Auto subtitle load failed: " + candidate.wstring() + L" - " + subtitle_result.Error().message);
+    }
+
+    if (auto_subtitle_load_result_ != AutoSubtitleLoadResult::Success) {
+        if (!auto_subtitle_attempted) {
+            auto_subtitle_load_result_ = AutoSubtitleLoadResult::NotFound;
+            state_.hint_text = L"No matching subtitle found. Use Open Subtitle to load manually.";
+            logger_->Info(L"No matching subtitles found for audio: " + path.wstring());
+        } else if (auto_subtitle_load_result_ == AutoSubtitleLoadResult::Failed) {
+            state_.status_text = L"Audio loaded";
+        }
+    }
+
     RefreshDerivedState();
     return Ok();
 }
@@ -479,6 +524,11 @@ void PlaybackCoordinator::RefreshDisplayNames() {
         state_.subtitle_display_name = state_.subtitle_path.filename().wstring();
     } else {
         state_.subtitle_display_name = L"No subtitle loaded";
+        if (auto_subtitle_load_result_ == AutoSubtitleLoadResult::NotFound) {
+            state_.subtitle_display_name += L" (auto: not found)";
+        } else if (auto_subtitle_load_result_ == AutoSubtitleLoadResult::Failed) {
+            state_.subtitle_display_name += L" (auto: failed)";
+        }
     }
 }
 

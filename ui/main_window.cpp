@@ -107,7 +107,20 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         } return 0;
     case WM_COMMAND: {
         switch (LOWORD(wp)) {
-        case IdOpenAudio: { auto p = OpenFileDialog(L"Audio\0*.mp3;*.wav\0All\0*.*\0"); if (!p.empty()) { if (auto r = coordinator_->LoadAudio(p); !r.Ok()) ShowError(r.Error()); SyncUi(); } return 0; }
+        case IdOpenAudio: {
+            auto p = OpenFileDialog(L"Audio\0*.mp3;*.wav\0All\0*.*\0");
+            if (!p.empty()) {
+                if (auto r = coordinator_->LoadAudio(p); !r.Ok()) {
+                    ShowError(r.Error());
+                } else if (!coordinator_->GetState().subtitles.empty()) {
+                    PopulateSubtitleList();
+                } else {
+                    SendMessageW(list_subtitles_, LB_RESETCONTENT, 0, 0);
+                }
+                SyncUi();
+            }
+            return 0;
+        }
         case IdOpenSubtitle: { auto p = OpenFileDialog(L"Subtitle\0*.srt;*.lrc\0All\0*.*\0"); if (!p.empty()) { if (auto r = coordinator_->LoadSubtitles(p); !r.Ok()) ShowError(r.Error()); PopulateSubtitleList(); SyncUi(); } return 0; }
         case IdPlay: {
             const auto& state = coordinator_->GetState();

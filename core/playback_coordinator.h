@@ -44,6 +44,13 @@ public:
     [[nodiscard]] IAudioPlayer& PlayerRef() noexcept;
 
 private:
+    enum class AutoSubtitleLoadResult {
+        None = 0,
+        Success,
+        NotFound,
+        Failed
+    };
+
     void UpdateCurrentSubtitle();
     void UpdatePlayerState();
     void HandleLearningModes();
@@ -60,6 +67,7 @@ private:
     SubtitleService subtitle_service_;
     RecordingPlayer recording_player_;
     AppState state_;
+    AutoSubtitleLoadResult auto_subtitle_load_result_{AutoSubtitleLoadResult::None};
 };
 
 } // namespace replayer
