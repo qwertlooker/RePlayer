@@ -26,21 +26,22 @@ enum ControlId : int {
     IdPlayOriginal, IdPlayRecording, IdPrevSentence, IdNextSentence
 };
 
-constexpr COLORREF C_BG       = RGB(30, 30, 35);
-constexpr COLORREF C_CARD      = RGB(40, 40, 48);
-constexpr COLORREF C_CARD_H    = RGB(50, 50, 58);
-constexpr COLORREF C_BORDER    = RGB(55, 55, 62);
-constexpr COLORREF C_TEXT      = RGB(248, 248, 250);
-constexpr COLORREF C_TEXT2     = RGB(160, 160, 170);
-constexpr COLORREF C_TEXT3     = RGB(100, 100, 110);
-constexpr COLORREF C_PRIMARY   = RGB(41, 98, 255);
-constexpr COLORREF C_SUCCESS   = RGB(34, 197, 94);
-constexpr COLORREF C_DANGER    = RGB(239, 68, 68);
-constexpr COLORREF C_SECONDARY = RGB(107, 114, 128);
-constexpr COLORREF C_ACCENT_B  = RGB(96, 165, 250);
-constexpr COLORREF C_ACCENT_G  = RGB(74, 222, 128);
-constexpr COLORREF C_ACCENT_R  = RGB(248, 113, 113);
-
+constexpr COLORREF C_BG_START      = RGB(245, 248, 255);
+constexpr COLORREF C_BG_END        = RGB(235, 241, 252);
+constexpr COLORREF C_HEADER_FILL   = RGB(255, 255, 255);
+constexpr COLORREF C_CARD          = RGB(255, 255, 255);
+constexpr COLORREF C_CARD_H        = RGB(250, 252, 255);
+constexpr COLORREF C_BORDER        = RGB(216, 226, 242);
+constexpr COLORREF C_TEXT          = RGB(30, 41, 59);
+constexpr COLORREF C_TEXT2         = RGB(71, 85, 105);
+constexpr COLORREF C_TEXT3         = RGB(100, 116, 139);
+constexpr COLORREF C_PRIMARY       = RGB(37, 99, 235);
+constexpr COLORREF C_SUCCESS       = RGB(22, 163, 74);
+constexpr COLORREF C_DANGER        = RGB(220, 38, 38);
+constexpr COLORREF C_SECONDARY     = RGB(148, 163, 184);
+constexpr COLORREF C_ACCENT_B      = RGB(29, 78, 216);
+constexpr COLORREF C_ACCENT_G      = RGB(21, 128, 61);
+constexpr COLORREF C_ACCENT_R      = RGB(185, 28, 28);
 HWND Btn(HWND p, HINSTANCE i, const wchar_t* t, int id, int w = 90, int h = 32) {
     return CreateWindowExW(0, WC_BUTTONW, t, WS_CHILD | WS_VISIBLE | BS_OWNERDRAW | BS_FLAT,
                            0, 0, w, h, p, reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)), i, nullptr);
@@ -68,6 +69,8 @@ MainWindow::~MainWindow() {
     if (font_small_) DeleteObject(font_small_);
     if (font_bold_) DeleteObject(font_bold_);
     if (font_mono_) DeleteObject(font_mono_);
+    if (font_title_) DeleteObject(font_title_);
+    if (font_caption_) DeleteObject(font_caption_);
 }
 
 Result<void> MainWindow::Create(int cmd_show) {
@@ -82,7 +85,7 @@ Result<void> MainWindow::Create(int cmd_show) {
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof(wc); wc.lpfnWndProc = WindowProc; wc.hInstance = instance_;
     wc.lpszClassName = kMainWindowClassName; wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    wc.hbrBackground = CreateSolidBrush(C_BG);
+    wc.hbrBackground = CreateSolidBrush(C_BG_START);
 
     if (!RegisterClassExW(&wc)) return MakeError(ErrorCode::SystemError, L"RegisterClass failed");
 
@@ -114,6 +117,13 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         LayoutControls(LOWORD(lp), HIWORD(lp));
         InvalidateRect(hwnd_, nullptr, TRUE);
         return 0;
+    case WM_PAINT: {
+        PAINTSTRUCT ps{};
+        HDC hdc = BeginPaint(hwnd_, &ps);
+        DrawSurface(hdc);
+        EndPaint(hwnd_, &ps);
+        return 0;
+    }
     case WM_CTLCOLORSTATIC: {
         HDC hdc = reinterpret_cast<HDC>(wp);
         HWND ctl = reinterpret_cast<HWND>(lp);
@@ -130,9 +140,10 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
         SetTextColor(hdc, (ctl == label_hint_ || ctl == label_audio_name_ || ctl == label_subtitle_name_ || ctl == label_delay_text_) ? C_TEXT3 : C_TEXT2);
         return reinterpret_cast<LRESULT>(GetStockObject(NULL_BRUSH));
     }
-    case WM_CTLCOLOREDIT: {
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX: {
         HDC hdc = reinterpret_cast<HDC>(wp);
-        SetBkColor(hdc, C_CARD); SetTextColor(hdc, C_TEXT);
+        SetBkColor(hdc, C_CARD_H); SetTextColor(hdc, C_TEXT);
         return reinterpret_cast<LRESULT>(CreateSolidBrush(C_CARD));
     }
     case WM_MOUSEMOVE: UpdateHoverState(GET_X_LPARAM(wp), GET_Y_LPARAM(lp)); break;
@@ -195,14 +206,16 @@ LRESULT MainWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 void MainWindow::CreateControls() {
-    font_large_ = CreateFontW(26, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-    font_normal_ = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-    font_small_ = CreateFontW(11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-    font_bold_ = CreateFontW(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
-    font_mono_ = CreateFontW(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Consolas");
+    font_title_ = CreateFontW(30, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    font_large_ = CreateFontW(26, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    font_normal_ = CreateFontW(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    font_small_ = CreateFontW(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    font_caption_ = CreateFontW(13, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    font_bold_ = CreateFontW(14, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    font_mono_ = CreateFontW(17, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_MODERN, L"Cascadia Mono");
 
-    button_open_audio_ = Btn(hwnd_, instance_, L"\u25CF Audio", IdOpenAudio, 95, 30);
-    button_open_subtitle_ = Btn(hwnd_, instance_, L"\u25CF Subtitle", IdOpenSubtitle, 105, 30);
+    button_open_audio_ = Btn(hwnd_, instance_, L"Open Audio", IdOpenAudio, 108, 32);
+    button_open_subtitle_ = Btn(hwnd_, instance_, L"Open Subtitle", IdOpenSubtitle, 118, 32);
     label_audio_name_ = Lbl(hwnd_, instance_, L"No audio loaded", 280);
     label_subtitle_name_ = Lbl(hwnd_, instance_, L"No subtitle loaded", 280);
     label_time_ = Lbl(hwnd_, instance_, L"00:00 / 00:00", 150);
@@ -217,20 +230,20 @@ void MainWindow::CreateControls() {
     label_recording_status_ = Lbl(hwnd_, instance_, L"No recording", 140);
     label_hint_ = Lbl(hwnd_, instance_, L"", 350);
 
-    button_play_ = Btn(hwnd_, instance_, L"\u25B6 Play", IdPlay, 78, 34);
-    button_pause_ = Btn(hwnd_, instance_, L"\u23F8 Pause", IdPause, 78, 34);
-    button_stop_ = Btn(hwnd_, instance_, L"\u25A0 Stop", IdStop, 78, 34);
-    button_prev_sentence_ = Btn(hwnd_, instance_, L"\u25C0 Prev", IdPrevSentence, 75, 34);
-    button_next_sentence_ = Btn(hwnd_, instance_, L"Next \u25B6", IdNextSentence, 75, 34);
+    button_play_ = Btn(hwnd_, instance_, L"Play", IdPlay, 92, 36);
+    button_pause_ = Btn(hwnd_, instance_, L"Pause", IdPause, 92, 36);
+    button_stop_ = Btn(hwnd_, instance_, L"Stop", IdStop, 92, 36);
+    button_prev_sentence_ = Btn(hwnd_, instance_, L"Prev", IdPrevSentence, 78, 36);
+    button_next_sentence_ = Btn(hwnd_, instance_, L"Next", IdNextSentence, 78, 36);
 
     track_position_ = CreateWindowExW(0, TRACKBAR_CLASSW, L"", WS_CHILD | WS_VISIBLE | TBS_NOTICKS | TBS_BOTH,
                                       0, 0, 100, 28, hwnd_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IdTrackPosition)), instance_, nullptr);
     SendMessageW(track_position_, TBM_SETRANGE, TRUE, MAKELPARAM(0, 1000));
 
-    button_play_original_ = Btn(hwnd_, instance_, L"\u266B Original", IdPlayOriginal, 102, 32);
-    button_record_start_ = Btn(hwnd_, instance_, L"\u25CF Record", IdRecordStart, 102, 32);
-    button_record_stop_ = Btn(hwnd_, instance_, L"\u25A0 Stop Rec", IdRecordStop, 102, 32);
-    button_play_recording_ = Btn(hwnd_, instance_, L"\u266A My Voice", IdPlayRecording, 102, 32);
+    button_play_original_ = Btn(hwnd_, instance_, L"Original", IdPlayOriginal, 108, 34);
+    button_record_start_ = Btn(hwnd_, instance_, L"Record", IdRecordStart, 108, 34);
+    button_record_stop_ = Btn(hwnd_, instance_, L"Stop Rec", IdRecordStop, 108, 34);
+    button_play_recording_ = Btn(hwnd_, instance_, L"My Voice", IdPlayRecording, 108, 34);
 
     combo_mode_ = CreateWindowExW(0, WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST,
                                   0, 0, 140, 200, hwnd_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IdModeCombo)), instance_, nullptr);
@@ -239,7 +252,7 @@ void MainWindow::CreateControls() {
     SendMessageW(combo_mode_, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Auto Pause"));
     SendMessageW(combo_mode_, CB_SETCURSEL, 0, 0);
 
-    label_delay_text_ = Lbl(hwnd_, instance_, L"Delay:", 50);
+    label_delay_text_ = Lbl(hwnd_, instance_, L"Pause(s):", 60);
     edit_auto_pause_ = Edt(hwnd_, instance_, L"1", IdAutoPauseEdit, 45);
 
     list_subtitles_ = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTBOXW, L"", WS_CHILD | WS_VISIBLE | LBS_NOTIFY | WS_VSCROLL | LBS_NOINTEGRALHEIGHT,
@@ -251,43 +264,77 @@ void MainWindow::CreateControls() {
         SetWindowSubclass(b, ButtonProc, 0, reinterpret_cast<DWORD_PTR>(this));
 
     auto set_font = [&](HWND h, HFONT f) { SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(f), TRUE); };
-    set_font(label_audio_name_, font_small_); set_font(label_subtitle_name_, font_small_);
+    set_font(label_audio_name_, font_caption_); set_font(label_subtitle_name_, font_caption_);
     set_font(label_time_, font_mono_); set_font(label_sentence_info_, font_normal_);
     set_font(label_sentence_time_, font_small_); set_font(label_sentence_index_, font_small_);
     set_font(label_mode_, font_bold_); set_font(label_recording_status_, font_bold_);
-    set_font(label_hint_, font_small_); set_font(label_delay_text_, font_small_);
+    set_font(label_hint_, font_small_); set_font(label_delay_text_, font_caption_);
+    set_font(button_open_audio_, font_caption_);
+    set_font(button_open_subtitle_, font_caption_);
+    set_font(button_play_, font_caption_);
+    set_font(button_pause_, font_caption_);
+    set_font(button_stop_, font_caption_);
+    set_font(button_prev_sentence_, font_caption_);
+    set_font(button_next_sentence_, font_caption_);
+    set_font(button_play_original_, font_caption_);
+    set_font(button_record_start_, font_caption_);
+    set_font(button_record_stop_, font_caption_);
+    set_font(button_play_recording_, font_caption_);
+    set_font(combo_mode_, font_caption_);
+    set_font(edit_auto_pause_, font_caption_);
+    set_font(list_subtitles_, font_normal_);
 }
 
 void MainWindow::LayoutControls(int width, int height) {
-    const int m = 12; int y = m;
-    MoveWindow(button_open_audio_, m + 5, y + 2, 95, 28, TRUE);
-    MoveWindow(button_open_subtitle_, m + 108, y + 2, 105, 28, TRUE);
-    MoveWindow(label_audio_name_, m + 222, y + 7, 260, 18, TRUE);
-    MoveWindow(label_subtitle_name_, m + 494, y + 7, 260, 18, TRUE); y += 38;
-    MoveWindow(track_position_, m, y, width - m * 2, 26, TRUE);
-    MoveWindow(label_time_, width / 2 - 70, y + 30, 140, 22, TRUE); y += 56;
-    MoveWindow(label_current_sentence_, m, y, width - m * 2, 60, TRUE); y += 65;
-    MoveWindow(label_sentence_info_, m + 15, y, width - m * 2 - 30, 20, TRUE); y += 24;
-    MoveWindow(label_sentence_index_, m + 15, y, 100, 18, TRUE);
-    MoveWindow(label_sentence_time_, m + 122, y, 175, 18, TRUE);
-    MoveWindow(label_mode_, m + 310, y, 125, 18, TRUE);
-    MoveWindow(label_recording_status_, m + 445, y, 135, 18, TRUE);
-    MoveWindow(label_hint_, m + 592, y, width - m * 2 - 610, 18, TRUE); y += 30;
-    int bx = m + 10, by = y + 8;
-    MoveWindow(button_play_, bx, by, 78, 32, TRUE); bx += 82;
-    MoveWindow(button_pause_, bx, by, 78, 32, TRUE); bx += 82;
-    MoveWindow(button_stop_, bx, by, 78, 32, TRUE); bx += 86;
-    MoveWindow(button_prev_sentence_, bx, by, 75, 32, TRUE); bx += 79;
-    MoveWindow(button_next_sentence_, bx, by, 75, 32, TRUE);
-    int tx = m + (width - m * 2) / 2 + 11;
-    MoveWindow(button_play_original_, tx, by, 102, 32, TRUE); tx += 106;
-    MoveWindow(button_record_start_, tx, by, 102, 32, TRUE); tx += 106;
-    MoveWindow(button_record_stop_, tx, by, 102, 32, TRUE); tx += 106;
-    MoveWindow(button_play_recording_, tx, by, 102, 32, TRUE); y += 48;
-    MoveWindow(combo_mode_, m + 10, y, 140, 200, TRUE);
-    MoveWindow(label_delay_text_, m + 158, y + 5, 50, 18, TRUE);
-    MoveWindow(edit_auto_pause_, m + 212, y, 45, 26, TRUE); y += 36;
-    MoveWindow(list_subtitles_, m, y, width - m * 2, height - y - m, TRUE);
+    const int margin = 16;
+    const int gutter = 14;
+    const int right_width = (width > 1100) ? 420 : 360;
+    const int left_width = width - margin * 2 - right_width - gutter;
+    const int safe_left = left_width < 480 ? 480 : left_width;
+
+    rect_header_ = {margin, margin, width - margin, margin + 108};
+    rect_sentence_card_ = {margin, rect_header_.bottom + gutter, margin + safe_left, rect_header_.bottom + gutter + 172};
+    rect_controls_card_ = {margin, rect_sentence_card_.bottom + gutter, margin + safe_left, rect_sentence_card_.bottom + gutter + 128};
+    rect_subtitle_card_ = {margin + safe_left + gutter, rect_header_.bottom + gutter, width - margin, height - margin};
+
+    const int hx = rect_header_.left + 20;
+    const int hy = rect_header_.top + 18;
+    MoveWindow(button_open_audio_, hx, hy + 44, 108, 32, TRUE);
+    MoveWindow(button_open_subtitle_, hx + 118, hy + 44, 118, 32, TRUE);
+    MoveWindow(label_audio_name_, hx + 250, hy + 48, 270, 20, TRUE);
+    MoveWindow(label_subtitle_name_, hx + 250, hy + 72, 270, 20, TRUE);
+    MoveWindow(track_position_, rect_header_.left + 22, rect_header_.bottom - 32, rect_header_.right - rect_header_.left - 44, 22, TRUE);
+    MoveWindow(label_time_, rect_header_.right - 196, rect_header_.top + 22, 166, 26, TRUE);
+
+    MoveWindow(label_current_sentence_, rect_sentence_card_.left + 20, rect_sentence_card_.top + 20, rect_sentence_card_.right - rect_sentence_card_.left - 36, 68, TRUE);
+    MoveWindow(label_sentence_info_, rect_sentence_card_.left + 20, rect_sentence_card_.top + 96, rect_sentence_card_.right - rect_sentence_card_.left - 36, 24, TRUE);
+    MoveWindow(label_sentence_index_, rect_sentence_card_.left + 20, rect_sentence_card_.top + 126, 120, 20, TRUE);
+    MoveWindow(label_sentence_time_, rect_sentence_card_.left + 152, rect_sentence_card_.top + 126, 188, 20, TRUE);
+    MoveWindow(label_mode_, rect_sentence_card_.left + 352, rect_sentence_card_.top + 126, 160, 20, TRUE);
+    MoveWindow(label_recording_status_, rect_sentence_card_.left + 520, rect_sentence_card_.top + 126, 160, 20, TRUE);
+
+    const int by = rect_controls_card_.top + 26;
+    int bx = rect_controls_card_.left + 18;
+    MoveWindow(button_play_, bx, by, 92, 36, TRUE); bx += 98;
+    MoveWindow(button_pause_, bx, by, 92, 36, TRUE); bx += 98;
+    MoveWindow(button_stop_, bx, by, 92, 36, TRUE); bx += 100;
+    MoveWindow(button_prev_sentence_, bx, by, 78, 36, TRUE); bx += 84;
+    MoveWindow(button_next_sentence_, bx, by, 78, 36, TRUE);
+
+    int tx = rect_controls_card_.left + 18;
+    const int row2y = by + 44;
+    MoveWindow(button_play_original_, tx, row2y, 108, 34, TRUE); tx += 114;
+    MoveWindow(button_record_start_, tx, row2y, 108, 34, TRUE); tx += 114;
+    MoveWindow(button_record_stop_, tx, row2y, 108, 34, TRUE); tx += 114;
+    MoveWindow(button_play_recording_, tx, row2y, 108, 34, TRUE);
+
+    MoveWindow(combo_mode_, rect_controls_card_.right - 168, by + 2, 144, 200, TRUE);
+    MoveWindow(label_delay_text_, rect_controls_card_.right - 166, row2y + 8, 70, 18, TRUE);
+    MoveWindow(edit_auto_pause_, rect_controls_card_.right - 84, row2y + 4, 60, 28, TRUE);
+    MoveWindow(label_hint_, rect_controls_card_.left + 20, rect_controls_card_.bottom - 26, rect_controls_card_.right - rect_controls_card_.left - 40, 18, TRUE);
+
+    MoveWindow(list_subtitles_, rect_subtitle_card_.left + 14, rect_subtitle_card_.top + 54,
+               rect_subtitle_card_.right - rect_subtitle_card_.left - 28, rect_subtitle_card_.bottom - rect_subtitle_card_.top - 68, TRUE);
 }
 
 void MainWindow::OnTimer() { coordinator_->Tick(); SyncUi(); }
@@ -384,16 +431,16 @@ void MainWindow::UpdateHoverState(int x, int y) {
 void MainWindow::DrawModernButton(HWND hwnd, HDC hdc, bool hovered, bool pressed, bool disabled, COLORREF baseColor) {
     RECT rc; GetClientRect(hwnd, &rc);
     int w = rc.right - rc.left, h = rc.bottom - rc.top;
-    COLORREF fill = disabled ? RGB(55, 55, 62) : (pressed ? baseColor : (hovered ? baseColor : C_CARD));
-    COLORREF border = disabled ? RGB(65, 65, 72) : (pressed ? baseColor : (hovered ? baseColor : C_BORDER));
+    COLORREF fill = disabled ? RGB(226, 232, 240) : (pressed ? Darken(baseColor, 0.88f) : (hovered ? baseColor : C_CARD));
+    COLORREF border = disabled ? RGB(203, 213, 225) : (pressed ? Darken(baseColor, 0.88f) : (hovered ? baseColor : C_BORDER));
 
     DrawRoundRect(hdc, 0, 0, w, h, 6, fill, border);
 
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, disabled ? RGB(80, 80, 88) : C_TEXT);
+    SetTextColor(hdc, disabled ? RGB(148, 163, 184) : (hovered || pressed ? RGB(255, 255, 255) : C_TEXT));
     wchar_t text[64]{}; GetWindowTextW(hwnd, text, 64);
 
-    HFONT old_font = reinterpret_cast<HFONT>(SelectObject(hdc, font_normal_));
+    HFONT old_font = reinterpret_cast<HFONT>(SelectObject(hdc, font_caption_));
     RECT tr{2, 0, w - 2, h};
     DrawTextW(hdc, text, -1, &tr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     SelectObject(hdc, old_font);
@@ -411,6 +458,44 @@ void MainWindow::DrawRoundRect(HDC hdc, int x, int y, int w, int h, int r, COLOR
     DeleteObject(border_brush);
     SelectObject(hdc, old_pen); SelectObject(hdc, old_brush);
     DeleteObject(pen); DeleteObject(brush); DeleteObject(rgn);
+}
+
+void MainWindow::DrawSurface(HDC hdc) {
+    RECT client{};
+    GetClientRect(hwnd_, &client);
+    HBRUSH bg_brush = CreateSolidBrush(C_BG_END);
+    FillRect(hdc, &client, bg_brush);
+    DeleteObject(bg_brush);
+
+    DrawHeaderPanel(hdc, rect_header_);
+    DrawCard(hdc, rect_sentence_card_, C_CARD, C_BORDER, 18);
+    DrawCard(hdc, rect_controls_card_, C_CARD, C_BORDER, 18);
+    DrawCard(hdc, rect_subtitle_card_, C_CARD, C_BORDER, 18);
+
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, C_TEXT);
+    HFONT old_font = reinterpret_cast<HFONT>(SelectObject(hdc, font_title_));
+    RECT title_rect{rect_header_.left + 20, rect_header_.top + 12, rect_header_.right - 200, rect_header_.top + 50};
+    DrawTextW(hdc, L"RePlayer", -1, &title_rect, DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+
+    SelectObject(hdc, font_caption_);
+    SetTextColor(hdc, C_TEXT2);
+    RECT subtitle_rect{rect_header_.left + 22, rect_header_.top + 50, rect_header_.right - 210, rect_header_.top + 76};
+    DrawTextW(hdc, L"Win11 style English listening studio", -1, &subtitle_rect, DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+
+    SetTextColor(hdc, C_TEXT2);
+    RECT list_title{rect_subtitle_card_.left + 18, rect_subtitle_card_.top + 16, rect_subtitle_card_.right - 18, rect_subtitle_card_.top + 40};
+    DrawTextW(hdc, L"Subtitles", -1, &list_title, DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+
+    SelectObject(hdc, old_font);
+}
+
+void MainWindow::DrawHeaderPanel(HDC hdc, const RECT& rect) {
+    DrawCard(hdc, rect, C_HEADER_FILL, C_BORDER, 20);
+}
+
+void MainWindow::DrawCard(HDC hdc, const RECT& rect, COLORREF fill, COLORREF border, int radius) {
+    DrawRoundRect(hdc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, radius, fill, border);
 }
 
 } // namespace replayer
