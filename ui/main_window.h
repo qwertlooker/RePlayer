@@ -28,14 +28,7 @@ private:
     std::wstring OpenFileDialog(const wchar_t* filter) const;
     PlaybackMode SelectedPlaybackMode() const;
     std::wstring FormatTimePrefix(std::int64_t ms) const;
-
-    static LRESULT CALLBACK ButtonProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-    void DrawModernButton(HWND hwnd, HDC hdc, bool hovered, bool pressed, bool disabled, COLORREF baseColor);
-    void DrawRoundRect(HDC hdc, int x, int y, int w, int h, int r, COLORREF fill, COLORREF border);
-    void DrawSurface(HDC hdc);
-    void DrawHeaderPanel(HDC hdc, const RECT& rect);
-    void DrawCard(HDC hdc, const RECT& rect, COLORREF fill, COLORREF border, int radius);
-    void UpdateHoverState(int x, int y);
+    std::wstring BuildHintText(const AppState& state) const;
 
     HINSTANCE instance_;
     HWND hwnd_{nullptr};
@@ -48,15 +41,11 @@ private:
 
     HWND label_current_sentence_{nullptr};
     HWND label_sentence_info_{nullptr};
-    HWND label_sentence_index_{nullptr};
     HWND label_sentence_time_{nullptr};
-    HWND label_mode_{nullptr};
-    HWND label_recording_status_{nullptr};
+    HWND label_practice_{nullptr};
     HWND label_hint_{nullptr};
 
     HWND button_play_{nullptr};
-    HWND button_pause_{nullptr};
-    HWND button_stop_{nullptr};
     HWND button_prev_sentence_{nullptr};
     HWND button_next_sentence_{nullptr};
     HWND button_play_original_{nullptr};
@@ -72,17 +61,10 @@ private:
     HFONT font_large_{nullptr};
     HFONT font_normal_{nullptr};
     HFONT font_small_{nullptr};
-    HFONT font_bold_{nullptr};
     HFONT font_mono_{nullptr};
-    HFONT font_title_{nullptr};
     HFONT font_caption_{nullptr};
 
     bool is_dragging_track_{false};
-    HWND hovered_button_{nullptr};
-    RECT rect_header_{};
-    RECT rect_sentence_card_{};
-    RECT rect_controls_card_{};
-    RECT rect_subtitle_card_{};
     std::unique_ptr<PlaybackCoordinator> coordinator_;
 };
 
