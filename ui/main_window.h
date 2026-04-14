@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-
 #include <windows.h>
 
 #include "core/playback_coordinator.h"
@@ -33,6 +32,9 @@ private:
     static LRESULT CALLBACK ButtonProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
     void DrawModernButton(HWND hwnd, HDC hdc, bool hovered, bool pressed, bool disabled, COLORREF baseColor);
     void DrawRoundRect(HDC hdc, int x, int y, int w, int h, int r, COLORREF fill, COLORREF border);
+    void DrawSurface(HDC hdc);
+    void DrawHeaderPanel(HDC hdc, const RECT& rect);
+    void DrawCard(HDC hdc, const RECT& rect, COLORREF fill, COLORREF border, int radius);
     void UpdateHoverState(int x, int y);
 
     HINSTANCE instance_;
@@ -72,9 +74,15 @@ private:
     HFONT font_small_{nullptr};
     HFONT font_bold_{nullptr};
     HFONT font_mono_{nullptr};
+    HFONT font_title_{nullptr};
+    HFONT font_caption_{nullptr};
 
     bool is_dragging_track_{false};
     HWND hovered_button_{nullptr};
+    RECT rect_header_{};
+    RECT rect_sentence_card_{};
+    RECT rect_controls_card_{};
+    RECT rect_subtitle_card_{};
     std::unique_ptr<PlaybackCoordinator> coordinator_;
 };
 
