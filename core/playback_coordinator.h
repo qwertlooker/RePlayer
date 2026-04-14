@@ -28,6 +28,8 @@ public:
     Result<void> Stop();
     Result<void> Seek(std::int64_t position_ms);
     Result<void> SelectSubtitle(int subtitle_index);
+    Result<void> SelectPreviousSubtitle();
+    Result<void> SelectNextSubtitle();
     void Tick();
 
     Result<void> SetPlaybackMode(PlaybackMode mode);
@@ -45,6 +47,11 @@ private:
     void UpdateCurrentSubtitle();
     void UpdatePlayerState();
     void HandleLearningModes();
+    void RefreshDerivedState();
+    void RefreshCurrentSentenceState();
+    void RefreshActionAvailability();
+    void RefreshStatusTexts();
+    void RefreshDisplayNames();
 
     std::unique_ptr<IAudioPlayer> player_;
     std::unique_ptr<IRecorder> recorder_;

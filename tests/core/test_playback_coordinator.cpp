@@ -116,5 +116,248 @@ TEST_F(PlaybackCoordinatorTest, OriginalSegmentUsesCurrentSubtitleBounds) {
     EXPECT_EQ(player_->segment_end, 600);
 }
 
+TEST_F(PlaybackCoordinatorTest, LoadAudioSetsDisplayName) {
+    ASSERT_TRUE(coordinator_->LoadAudio(L"test.mp3").Ok());
+    EXPECT_EQ(coordinator_->GetState().audio_display_name, L"test.mp3");
+}
+
+TEST_F(PlaybackCoordinatorTest, LoadAudioSetsCanPlay) {
+    ASSERT_TRUE(coordinator_->LoadAudio(L"test.mp3").Ok());
+    EXPECT_TRUE(coordinator_->GetState().can_play);
+    EXPECT_FALSE(coordinator_->GetState().can_pause);
+    EXPECT_FALSE(coordinator_->GetState().can_stop);
+}
+
+TEST_F(PlaybackCoordinatorTest, LoadSubtitlesSetsDisplayName) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({{1, 0, 1000, L"Test"}}).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.subtitle_path = L"test.srt";
+    coordinator_->SetPlaybackMode(PlaybackMode::Normal);
+    EXPECT_FALSE(coordinator_->GetState().subtitle_display_name.empty());
+}
+
+TEST_F(PlaybackCoordinatorTest, LoadSubtitlesSetsCurrentSentenceState) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({{1, 100, 500, L"Hello"}}).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index = 1;
+    coordinator_->SetPlaybackMode(PlaybackMode::Normal);
+
+    EXPECT_EQ(coordinator_->GetState().current_sentence_text, L"Hello");
+    EXPECT_EQ(coordinator_->GetState().current_sentence_start_ms, 100);
+    EXPECT_EQ(coordinator_->GetState().current_sentence_end_ms, 500);
+}
+
+TEST_F(PlaybackCoordinatorTest, SelectPreviousSubtitleSeeksCorrectly) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({
+        {1, 0, 999, L"First"},
+        {2, 1000, 1999, L"Second"},
+        {3, 2000, 2999, L"Third"},
+    }).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index = 3;
+
+    ASSERT_TRUE(coordinator_->SelectPreviousSubtitle().Ok());
+    EXPECT_EQ(state.current_subtitle_index, 2);
+    EXPECT_FALSE(player_->seek_history.empty());
+    EXPECT_EQ(player_->seek_history.back(), 1000);
+}
+
+TEST_F(PlaybackCoordinatorTest, SelectNextSubtitleSeeksCorrectly) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({
+        {1, 0, 999, L"First"},
+        {2, 1000, 1999, L"Second"},
+        {3, 2000, 2999, L"Third"},
+    }).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index = 1;
+
+    ASSERT_TRUE(coordinator_->SelectNextSubtitle().Ok());
+    EXPECT_EQ(state.current_subtitle_index, 2);
+    EXPECT_FALSE(player_->seek_history.empty());
+    EXPECT_EQ(player_->seek_history.back(), 1000);
+}
+
+TEST_F(PlaybackCoordinatorTest, PreviousSubtitleStopsAtFirst) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({
+        {1, 0, 999, L"First"},
+        {2, 1000, 1999, L"Second"},
+    }).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index = 1;
+
+    ASSERT_TRUE(coordinator_->SelectPreviousSubtitle().Ok());
+    EXPECT_EQ(state.current_subtitle_index, 1);
+}
+
+TEST_F(PlaybackCoordinatorTest, NextSubtitleStopsAtLast) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({
+        {1, 0, 999, L"First"},
+        {2, 1000, 1999, L"Second"},
+    }).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index = 2;
+
+    ASSERT_TRUE(coordinator_->SelectNextSubtitle().Ok());
+    EXPECT_EQ(state.current_subtitle_index, 2);
+}
+
+TEST_F(PlaybackCoordinatorTest, RecordingPausesPlaybackFirst) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({{1, 0, 1000, L"Test"}}).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index = 1;
+
+    ASSERT_TRUE(coordinator_->LoadAudio(L"test.mp3").Ok());
+    ASSERT_TRUE(coordinator_->Play().Ok());
+    EXPECT_EQ(player_->pause_calls, 0);
+
+    ASSERT_TRUE(coordinator_->StartRecording().Ok());
+    EXPECT_GE(player_->pause_calls, 1);
+}
+
+TEST_F(PlaybackCoordinatorTest, HasCurrentSentenceRecordingAfterRecording) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({{1, 0, 1000, L"Test"}}).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index = 1;
+
+    EXPECT_FALSE(coordinator_->GetState().has_current_sentence_recording);
+
+    ASSERT_TRUE(coordinator_->StartRecording().Ok());
+    ASSERT_TRUE(coordinator_->StopRecording().Ok());
+
+    EXPECT_TRUE(coordinator_->GetState().has_current_sentence_recording);
+}
+
+TEST_F(PlaybackCoordinatorTest, NoCurrentSentenceDisablesActions) {
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.current_subtitle_index.reset();
+
+    EXPECT_FALSE(coordinator_->GetState().can_play_original_segment);
+    EXPECT_FALSE(coordinator_->GetState().can_start_recording);
+    EXPECT_FALSE(coordinator_->GetState().can_play_recording);
+    EXPECT_FALSE(coordinator_->GetState().can_go_previous_sentence);
+    EXPECT_FALSE(coordinator_->GetState().can_go_next_sentence);
+}
+
+TEST_F(PlaybackCoordinatorTest, PlaybackStatusTextCorrect) {
+    EXPECT_EQ(coordinator_->GetState().playback_status_text, L"Stopped");
+
+    ASSERT_TRUE(coordinator_->LoadAudio(L"test.mp3").Ok());
+    ASSERT_TRUE(coordinator_->Play().Ok());
+    EXPECT_EQ(coordinator_->GetState().playback_status_text, L"Playing");
+
+    ASSERT_TRUE(coordinator_->Pause().Ok());
+    EXPECT_EQ(coordinator_->GetState().playback_status_text, L"Paused");
+
+    ASSERT_TRUE(coordinator_->Stop().Ok());
+    EXPECT_EQ(coordinator_->GetState().playback_status_text, L"Stopped");
+}
+
+TEST_F(PlaybackCoordinatorTest, ModeStatusTextCorrect) {
+    coordinator_->SetPlaybackMode(PlaybackMode::Normal);
+    EXPECT_EQ(coordinator_->GetState().mode_status_text, L"Normal");
+
+    coordinator_->SetPlaybackMode(PlaybackMode::RepeatOne);
+    EXPECT_EQ(coordinator_->GetState().mode_status_text, L"Repeat One");
+
+    coordinator_->SetPlaybackMode(PlaybackMode::AutoPause);
+    EXPECT_EQ(coordinator_->GetState().mode_status_text, L"Auto Pause");
+}
+
+TEST_F(PlaybackCoordinatorTest, RecordingStatusTextCorrect) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({{1, 0, 1000, L"Test"}}).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index = 1;
+
+    EXPECT_EQ(coordinator_->GetState().recording_status_text, L"No recording");
+
+    ASSERT_TRUE(coordinator_->StartRecording().Ok());
+    EXPECT_EQ(coordinator_->GetState().recording_status_text, L"Recording...");
+
+    ASSERT_TRUE(coordinator_->StopRecording().Ok());
+    EXPECT_EQ(coordinator_->GetState().recording_status_text, L"Recording available");
+}
+
+TEST_F(PlaybackCoordinatorTest, CanPlayRecordingOnlyWhenRecordingExists) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({{1, 0, 1000, L"Test"}}).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index = 1;
+
+    EXPECT_FALSE(coordinator_->GetState().can_play_recording);
+
+    ASSERT_TRUE(coordinator_->StartRecording().Ok());
+    ASSERT_TRUE(coordinator_->StopRecording().Ok());
+
+    EXPECT_TRUE(coordinator_->GetState().can_play_recording);
+}
+
+TEST_F(PlaybackCoordinatorTest, CanGoPreviousNextCorrect) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({
+        {1, 0, 999, L"First"},
+        {2, 1000, 1999, L"Second"},
+        {3, 2000, 2999, L"Third"},
+    }).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+
+    state.current_subtitle_index = 1;
+    coordinator_->SetPlaybackMode(PlaybackMode::Normal);
+    EXPECT_FALSE(coordinator_->GetState().can_go_previous_sentence);
+    EXPECT_TRUE(coordinator_->GetState().can_go_next_sentence);
+
+    state.current_subtitle_index = 2;
+    coordinator_->SetPlaybackMode(PlaybackMode::Normal);
+    EXPECT_TRUE(coordinator_->GetState().can_go_previous_sentence);
+    EXPECT_TRUE(coordinator_->GetState().can_go_next_sentence);
+
+    state.current_subtitle_index = 3;
+    coordinator_->SetPlaybackMode(PlaybackMode::Normal);
+    EXPECT_TRUE(coordinator_->GetState().can_go_previous_sentence);
+    EXPECT_FALSE(coordinator_->GetState().can_go_next_sentence);
+}
+
+TEST_F(PlaybackCoordinatorTest, SelectPreviousWithoutCurrentGoesToFirst) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({
+        {1, 0, 999, L"First"},
+        {2, 1000, 1999, L"Second"},
+    }).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index.reset();
+
+    ASSERT_TRUE(coordinator_->SelectPreviousSubtitle().Ok());
+    EXPECT_EQ(state.current_subtitle_index, 1);
+}
+
+TEST_F(PlaybackCoordinatorTest, SelectNextWithoutCurrentGoesToFirst) {
+    ASSERT_TRUE(coordinator_->SubtitleServiceRef().SetLines({
+        {1, 0, 999, L"First"},
+        {2, 1000, 1999, L"Second"},
+    }).Ok());
+    auto& state = const_cast<AppState&>(coordinator_->GetState());
+    state.subtitles = coordinator_->SubtitleServiceRef().GetAllLines();
+    state.current_subtitle_index.reset();
+
+    ASSERT_TRUE(coordinator_->SelectNextSubtitle().Ok());
+    EXPECT_EQ(state.current_subtitle_index, 1);
+}
+
+TEST_F(PlaybackCoordinatorTest, NoSubtitlesReturnsErrorForNavigation) {
+    auto result = coordinator_->SelectPreviousSubtitle();
+    EXPECT_FALSE(result.Ok());
+
+    result = coordinator_->SelectNextSubtitle();
+    EXPECT_FALSE(result.Ok());
+}
+
 } // namespace
 } // namespace replayer
