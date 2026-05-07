@@ -1,0 +1,117 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="RePlayer.App"
+             RequestedThemeVariant="Default">
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+
+    <Application.Resources>
+        <SolidColorBrush x:Key="Bg0" Color="#07090f" />
+        <SolidColorBrush x:Key="Bg1" Color="#0d1018" />
+        <SolidColorBrush x:Key="Bg2" Color="#121620" />
+        <SolidColorBrush x:Key="Tx"  Color="#d8e2f0" />
+        <SolidColorBrush x:Key="Tx2" Color="#5a7090" />
+        <SolidColorBrush x:Key="Tx3" Color="#2e4060" />
+        <SolidColorBrush x:Key="Ac"  Color="#00ccff" />
+        <SolidColorBrush x:Key="Ac2" Color="#1a3344" />
+        <SolidColorBrush x:Key="Grn" Color="#00cc88" />
+        <SolidColorBrush x:Key="Bd"  Color="#1e2535" />
+        <SolidColorBrush x:Key="Mark" Color="#2e3a50" />
+    </Application.Resources>
+
+    <Application.Styles>
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{DynamicResource Bg0}" />
+            <Setter Property="Foreground" Value="{DynamicResource Tx}" />
+            <Setter Property="FontFamily" Value="Inter,Segoe UI,sans-serif" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="Background" Value="{DynamicResource Bg2}" />
+            <Setter Property="Foreground" Value="{DynamicResource Tx2}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Bd}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="FontFamily" Value="inherit" />
+        </Style>
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="{DynamicResource Ac2}" />
+            <Setter Property="Foreground" Value="{DynamicResource Ac}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Ac}" />
+        </Style>
+        <Style Selector="Button:pressed">
+            <Setter Property="Opacity" Value="0.8" />
+        </Style>
+
+        <Style Selector="Button.ctrl-btn">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.ctrl-btn.repeat-on">
+            <Setter Property="Foreground" Value="{DynamicResource Grn}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Grn}" />
+            <Setter Property="Background" Value="#0a2a20" />
+        </Style>
+
+        <Style Selector="Button.speed-btn">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="2" />
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Foreground" Value="{DynamicResource Tx2}" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource Ac2}" />
+            <Setter Property="Foreground" Value="{DynamicResource Tx}" />
+        </Style>
+        <Style Selector="ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource Ac2}" />
+            <Setter Property="Foreground" Value="{DynamicResource Ac}" />
+        </Style>
+
+        <Style Selector="Slider">
+            <Setter Property="Foreground" Value="{DynamicResource Ac}" />
+        </Style>
+
+        <Style Selector="Border.sidebar">
+            <Setter Property="Background" Value="{DynamicResource Bg1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Bd}" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+        </Style>
+        <Style Selector="Border.header">
+            <Setter Property="Background" Value="{DynamicResource Bg1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Bd}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+        </Style>
+        <Style Selector="Border.control-bar">
+            <Setter Property="Background" Value="{DynamicResource Bg1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Bd}" />
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
+        </Style>
+        <Style Selector="Border.current-sub-bar">
+            <Setter Property="Background" Value="{DynamicResource Bg1}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Bd}" />
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
+        </Style>
+    </Application.Styles>
+</Application>

@@ -1,0 +1,156 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RePlayer.MainWindow"
+        Title="RePlayer"
+        Width="960" Height="640"
+        MinWidth="640" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        KeyDown="Window_KeyDown">
+
+    <Grid RowDefinitions="48,*,Auto,Auto,Auto">
+        <!-- Header -->
+        <Border Grid.Row="0" Classes="header">
+            <DockPanel Margin="12,0">
+                <TextBlock DockPanel.Dock="Left"
+                           Text="RePlayer"
+                           FontSize="16" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Ac}"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0" />
+                <Border DockPanel.Dock="Left" Width="1" Height="20"
+                        Background="{DynamicResource Bd}" Margin="4,0" />
+
+                <Button DockPanel.Dock="Left" Name="BtnOpenDir"
+                        Content="📂 打开文件夹" Margin="4,0" />
+                <Button DockPanel.Dock="Left" Name="BtnOpenFiles"
+                        Content="📄 选择文件" Margin="4,0" />
+
+                <TextBlock DockPanel.Dock="Right"
+                           Name="TrackName"
+                           Text=""
+                           FontSize="13"
+                           Foreground="{DynamicResource Tx2}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           Margin="8,0,0,0" />
+            </DockPanel>
+        </Border>
+
+        <!-- Main content -->
+        <Grid Grid.Row="1" ColumnDefinitions="220,*">
+            <!-- Sidebar -->
+            <Border Classes="sidebar">
+                <Grid RowDefinitions="Auto,*">
+                    <TextBlock Grid.Row="0"
+                               Text="曲目列表"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Tx3}"
+                               Margin="12,10,12,6"
+                               LetterSpacing="1" />
+                    <ListBox Grid.Row="1" Name="TrackList"
+                             SelectionChanged="TrackList_SelectionChanged"
+                             Margin="2,0" />
+                </Grid>
+            </Border>
+
+            <!-- Content area -->
+            <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto,Auto">
+                <!-- Progress bar -->
+                <Border Grid.Row="0" Background="{DynamicResource Bg2}"
+                        PointerPressed="Progress_PointerPressed"
+                        Name="ProgressBar"
+                        Height="5" />
+                <Slider Grid.Row="0" Name="ProgressSlider"
+                        Minimum="0" Maximum="100"
+                        Value="0"
+                        Height="18" Margin="0,-6,0,0"
+                        VerticalAlignment="Top"
+                        IsHitTestVisible="True"
+                        ValueChanged="ProgressSlider_ValueChanged"
+                        Opacity="0" />
+
+                <!-- Time display -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal"
+                            HorizontalAlignment="Center" Margin="0,2,0,4">
+                    <TextBlock Name="TimeCur" Text="00:00"
+                               FontFamily="Consolas,Courier New,monospace"
+                               FontSize="11" Foreground="{DynamicResource Tx3}" />
+                    <TextBlock Text=" / " FontSize="11"
+                               Foreground="{DynamicResource Tx3}" />
+                    <TextBlock Name="TimeDur" Text="00:00"
+                               FontFamily="Consolas,Courier New,monospace"
+                               FontSize="11" Foreground="{DynamicResource Tx3}" />
+                </StackPanel>
+
+                <!-- Subtitle list -->
+                <ListBox Grid.Row="2" Name="SubList"
+                         SelectionChanged="SubList_SelectionChanged"
+                         Margin="8,0" />
+
+                <!-- Current subtitle -->
+                <Border Grid.Row="3" Classes="current-sub-bar"
+                        MinHeight="44" Padding="20,10">
+                    <TextBlock Name="CurrentSub"
+                               Text=""
+                               FontSize="15"
+                               Foreground="{DynamicResource Tx}"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <!-- Control bar -->
+                <Border Grid.Row="4" Classes="control-bar" Padding="16,10">
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Spacing="10"
+                                VerticalAlignment="Center">
+
+                        <Button Classes="ctrl-btn" Name="BtnPrev"
+                                Content="⏮" Click="BtnPrev_Click" />
+                        <Button Classes="ctrl-btn" Name="BtnPlay"
+                                Content="▶" Click="BtnPlay_Click" />
+                        <Button Classes="ctrl-btn" Name="BtnNext"
+                                Content="⏭" Click="BtnNext_Click" />
+                        <Button Classes="ctrl-btn" Name="BtnRepeat"
+                                Content="↺" Click="BtnRepeat_Click" />
+
+                        <Border Width="1" Height="24"
+                                Background="{DynamicResource Bd}" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="4"
+                                    VerticalAlignment="Center">
+                            <Button Classes="speed-btn" Name="BtnSpeedDown"
+                                    Content="−" Click="BtnSpeedDown_Click" />
+                            <TextBlock Name="SpeedLabel" Text="1.0×"
+                                       FontFamily="Consolas,Courier New,monospace"
+                                       FontSize="12" Foreground="{DynamicResource Tx2}"
+                                       Width="40" TextAlignment="Center"
+                                       VerticalAlignment="Center" />
+                            <Button Classes="speed-btn" Name="BtnSpeedUp"
+                                    Content="+" Click="BtnSpeedUp_Click" />
+                        </StackPanel>
+
+                        <Border Width="1" Height="24"
+                                Background="{DynamicResource Bd}" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                    VerticalAlignment="Center">
+                            <Button Name="VolIcon"
+                                    Content="🔊" FontSize="16"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="0"
+                                    Click="VolIcon_Click" />
+                            <Slider Name="VolSlider"
+                                    Minimum="0" Maximum="1"
+                                    Value="1"
+                                    Width="80"
+                                    ValueChanged="VolSlider_ValueChanged" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
