@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#00ccff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<title>RePlayer</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#07090f;--bg1:#0d1018;--bg2:#121620;
+  --tx:#d8e2f0;--tx2:#5a7090;--tx3:#2e4060;
+  --ac:#00ccff;--ac2:rgba(0,204,255,.1);--grn:#00cc88;
+  --bd2:rgba(255,255,255,.1);--mark:rgba(255,255,255,.18);
+  --font:'DM Sans',system-ui,sans-serif;
+  --mono:'DM Mono',monospace;
+}
+@media(prefers-color-scheme:light){
+  :root{
+    --bg0:#f0f4f8;--bg1:#ffffff;--bg2:#e8edf5;
+    --tx:#1a2332;--tx2:#4e6080;--tx3:#8098b8;
+    --ac:#0077bb;--ac2:rgba(0,119,187,.08);--grn:#008844;
+    --bd2:rgba(0,0,0,.1);--mark:rgba(0,0,0,.12);
+  }
+}
+html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--tx);font-family:var(--font);font-size:14px;line-height:1.5}
+button{font-family:var(--font);cursor:pointer;border:1px solid var(--bd2);background:var(--bg2);color:var(--tx2);border-radius:6px;padding:6px 14px;font-size:13px;transition:background .15s,color .15s,border-color .15s}
+button:hover{background:var(--ac2);color:var(--ac);border-color:var(--ac)}
+button:active{opacity:.8}
+button:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.app{display:flex;flex-direction:column;height:100vh}
+.header{display:flex;align-items:center;gap:8px;height:48px;padding:0 12px;background:var(--bg1);border-bottom:1px solid var(--bd2);flex-shrink:0}
+.header .logo{font-weight:600;font-size:16px;color:var(--ac);letter-spacing:-.5px;margin-right:4px;white-space:nowrap}
+.header .sep{width:1px;height:20px;background:var(--bd2);margin:0 4px}
+.header .track-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2);font-size:13px;text-align:right}
+.header .btn-restore{display:none;border-color:var(--grn);color:var(--grn)}
+.header .btn-restore.show{display:inline-flex;align-items:center;gap:4px}
+.header .btn-install{display:none;border-color:var(--ac);color:var(--ac)}
+.header .btn-install.show{display:inline-flex;align-items:center;gap:4px}
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:220px;flex-shrink:0;background:var(--bg1);border-right:1px solid var(--bd2);display:flex;flex-direction:column;overflow:hidden}
+.sidebar .sidebar-title{padding:10px 12px 6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--tx3)}
+.sidebar .track-list{flex:1;overflow-y:auto;padding:0 4px 8px}
+.sidebar .track-item{padding:6px 10px;border-radius:5px;cursor:pointer;font-size:13px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .12s,color .12s}
+.sidebar .track-item:hover{background:var(--ac2);color:var(--tx)}
+.sidebar .track-item.active{background:var(--ac2);color:var(--ac);font-weight:500}
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.progress-wrap{flex-shrink:0;padding:0 0 0 0;position:relative;height:5px;cursor:pointer;transition:height .15s}
+.progress-wrap:hover{height:7px}
+.progress-bar{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--bg2)}
+.progress-fill{height:100%;background:var(--ac);pointer-events:none;transition:none}
+.progress-mark{position:absolute;top:0;bottom:0;width:1px;background:var(--mark);pointer-events:none}
+.progress-time{display:flex;justify-content:space-between;padding:2px 12px 4px;font-family:var(--mono);font-size:11px;color:var(--tx3);flex-shrink:0}
+.sub-list{flex:1;overflow-y:auto;padding:8px 12px}
+.sub-item{padding:5px 10px;border-radius:5px;cursor:pointer;font-size:13px;line-height:1.6;color:var(--tx2);transition:background .12s,color .12s,border-left-color .12s;border-left:3px solid transparent;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.sub-item:hover{background:var(--ac2);color:var(--tx)}
+.sub-item.active{background:var(--ac2);color:var(--ac);border-left-color:var(--ac)}
+.sub-item .sub-time{font-family:var(--mono);font-size:11px;color:var(--tx3);margin-right:8px}
+.sub-item.repeat-target{border-left-color:var(--grn);color:var(--grn)}
+.sub-item.repeat-target.active{color:var(--ac);border-left-color:var(--ac)}
+.current-sub{flex-shrink:0;padding:10px 20px;text-align:center;font-size:15px;line-height:1.6;color:var(--tx);background:var(--bg1);border-top:1px solid var(--bd2);min-height:44px;overflow:hidden}
+.controls{flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 16px;background:var(--bg1);border-top:1px solid var(--bd2)}
+.controls .ctrl-btn{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:16px;border-radius:50%}
+.controls .ctrl-btn.repeat-on{border-color:var(--grn);color:var(--grn);background:rgba(0,204,136,.1)}
+.controls .divider{width:1px;height:24px;background:var(--bd2)}
+.controls .speed-group{display:flex;align-items:center;gap:4px}
+.controls .speed-label{font-family:var(--mono);font-size:12px;color:var(--tx2);min-width:38px;text-align:center}
+.controls .speed-btn{width:26px;height:26px;padding:0;font-size:12px;border-radius:4px}
+.controls .vol-group{display:flex;align-items:center;gap:6px}
+.controls .vol-icon{font-size:16px;cursor:pointer;user-select:none;color:var(--tx2)}
+.controls .vol-icon:hover{color:var(--ac)}
+.controls .vol-slider{width:80px;accent-color:var(--ac);cursor:pointer}
+.drop-overlay{display:none;position:fixed;inset:0;background:rgba(0,204,255,.08);border:3px dashed var(--ac);z-index:999;align-items:center;justify-content:center;font-size:20px;color:var(--ac);font-weight:600;pointer-events:none}
+.drop-overlay.show{display:flex}
+.empty-state{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--tx3);font-size:14px}
+.empty-state .big-icon{font-size:48px;opacity:.4}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--tx3)}
+@media(max-width:640px){
+  .sidebar{width:160px}
+  .header .track-name{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <span class="logo">RePlayer</span>
+    <div class="sep"></div>
+    <button id="btnOpenDir" title="打开文件夹">📂 打开文件夹</button>
+    <button id="btnOpenFiles" title="选择文件">📄 选择文件</button>
+    <button id="btnRestore" class="btn-restore" title="恢复上次文件夹">↺ 恢复文件夹</button>
+    <button id="btnInstall" class="btn-install" title="安装应用">⬇ 安装应用</button>
+    <span class="track-name" id="trackName"></span>
+  </div>
+  <div class="main">
+    <div class="sidebar">
+      <div class="sidebar-title">曲目列表</div>
+      <div class="track-list" id="trackList"></div>
+    </div>
+    <div class="content">
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-fill" id="progressFill" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="progress-time">
+        <span id="timeCur">00:00</span>
+        <span id="timeDur">00:00</span>
+      </div>
+      <div class="sub-list" id="subList"></div>
+      <div class="current-sub" id="currentSub"></div>
+      <div class="controls">
+        <button class="ctrl-btn" id="btnPrev" title="上一句 (↑/←)">⏮</button>
+        <button class="ctrl-btn" id="btnPlay" title="播放/暂停 (Space)">▶</button>
+        <button class="ctrl-btn" id="btnNext" title="下一句 (↓/→)">⏭</button>
+        <button class="ctrl-btn" id="btnRepeat" title="单句复读 (R)">↺</button>
+        <div class="divider"></div>
+        <div class="speed-group">
+          <button class="speed-btn" id="btnSpeedDown" title="减速 (<)">&minus;</button>
+          <span class="speed-label" id="speedLabel">1.0×</span>
+          <button class="speed-btn" id="btnSpeedUp" title="加速 (>)">+</button>
+        </div>
+        <div class="divider"></div>
+        <div class="vol-group">
+          <span class="vol-icon" id="volIcon" title="静音 (M)">🔊</span>
+          <input type="range" class="vol-slider" id="volSlider" min="0" max="1" step="0.02" value="1">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="drop-overlay" id="dropOverlay">拖放文件夹或文件到此处</div>
+<audio id="audio" preload="auto"></audio>
+<input type="file" id="fileInput" multiple accept=".mp3,.srt,.lrc" style="display:none">
+<input type="file" id="dirInput" webkitdirectory style="display:none">
+
+<script>
+(function(){
+'use strict';
+
+const $ = s => document.querySelector(s);
+const audio = $('#audio');
+const A = {
+  tracks: [],
+  curTrack: -1,
+  subs: [],
+  activeSub: -1,
+  repeatOn: false,
+  repeatIndex: -1,
+  repeatStart: 0,
+  repeatEnd: 0,
+  _lastVol: 1,
+  _dirHandle: null
+};
+
+const SPEEDS = [0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.25,1.5,1.75,2.0];
+let speedIdx = 5;
+
+function fmt(s){
+  s = Math.max(0, Math.floor(s));
+  const m = Math.floor(s/60);
+  const sec = s%60;
+  return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+
+function sanitizeHtml(html){
+  html = html.replace(/<br\s*\/?>/gi,'\x00BR\x00');
+  html = html.replace(/<(\/?)(i|b|u)\b[^>]*>/gi,'\x00$1$2\x00');
+  html = html.replace(/<[^>]+>/g,'');
+  html = html.replace(/\x00BR\x00/g,'<br>');
+  html = html.replace(/\x00(\/?)(i|b|u)\x00/g,'<$1$2>');
+  return html;
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function parseSrt(text){
+  const subs = [];
+  const blocks = text.replace(/\r\n/g,'\n').split(/\n\n+/);
+  for(const block of blocks){
+    const lines = block.split('\n');
+    let tIdx = -1;
+    for(let i=0;i<lines.length;i++){
+      if(lines[i].includes('-->')){tIdx=i;break;}
+    }
+    if(tIdx<0) continue;
+    const tLine = lines[tIdx];
+    const m = tLine.match(/([\d:.]+)\s*-->\s*([\d:.]+)/);
+    if(!m) continue;
+    const start = parseTime(m[1]);
+    const end = parseTime(m[2]);
+    if(end<=start) continue;
+    const textLines = lines.slice(tIdx+1).filter(l=>l.trim());
+    const raw = textLines.join('<br>');
+    const text = sanitizeHtml(raw);
+    subs.push({start,end,text});
+  }
+  return subs;
+}
+
+function parseTime(s){
+  s = s.trim();
+  let h=0,min=0,sec=0,ms=0;
+  const m1 = s.match(/^(\d+):(\d+):(\d+)[,.](\d+)$/);
+  const m2 = s.match(/^(\d+):(\d+):(\d+)$/);
+  const m3 = s.match(/^(\d+):(\d+)[,.](\d+)$/);
+  const m4 = s.match(/^(\d+):(\d+)$/);
+  if(m1){h=+m1[1];min=+m1[2];sec=+m1[3];ms=+m1[4].padEnd(3,'0').slice(0,3);}
+  else if(m2){h=+m2[1];min=+m2[2];sec=+m2[3];}
+  else if(m3){min=+m3[1];sec=+m3[2];ms=+m3[3].padEnd(3,'0').slice(0,3);}
+  else if(m4){min=+m4[1];sec=+m4[2];}
+  return h*3600+min*60+sec+ms/1000;
+}
+
+function parseLrc(text){
+  const subs = [];
+  const lines = text.replace(/\r\n/g,'\n').split('\n');
+  const re = /^\[(\d+):(\d+)([.]\d+)?\](.*)/;
+  for(const line of lines){
+    const m = line.match(re);
+    if(!m) continue;
+    const min = +m[1];
+    const sec = +m[2];
+    const ms = m[3] ? +('0'+m[3].slice(1)).padEnd(3,'0').slice(0,3) : 0;
+    const start = min*60+sec+ms/1000;
+    const txt = escapeHtml(m[4].trim());
+    if(!txt) continue;
+    subs.push({start,end:0,text:txt});
+  }
+  subs.sort((a,b)=>a.start-b.start);
+  for(let i=0;i<subs.length;i++){
+    subs[i].end = i<subs.length-1 ? subs[i+1].start-0.05 : subs[i].start+5;
+  }
+  return subs;
+}
+
+function parseSubFile(file){
+  return new Promise(resolve=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const text = reader.result;
+      const name = file.name.toLowerCase();
+      if(name.endsWith('.srt')) resolve(parseSrt(text));
+      else if(name.endsWith('.lrc')) resolve(parseLrc(text));
+      else resolve([]);
+    };
+    reader.readAsText(file);
+  });
+}
+
+async function getIDB(){
+  return new Promise(resolve=>{
+    const req = indexedDB.open('replayer-v1',1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains('meta')){
+        db.createObjectStore('meta',{keyPath:'id'});
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function saveDirHandle(handle){
+  try{
+    const db = await getIDB();
+    if(!db) return;
+    const tx = db.transaction('meta','readwrite');
+    tx.objectStore('meta').put({id:'dirHandle',handle});
+  }catch(e){}
+}
+
+async function loadDirHandle(){
+  try{
+    const db = await getIDB();
+    if(!db) return null;
+    return new Promise(resolve=>{
+      const tx = db.transaction('meta','readonly');
+      const req = tx.objectStore('meta').get('dirHandle');
+      req.onsuccess = ()=> resolve(req.result?.handle||null);
+      req.onerror = ()=> resolve(null);
+    });
+  }catch(e){return null;}
+}
+
+async function clearDirHandle(){
+  try{
+    const db = await getIDB();
+    if(!db) return;
+    const tx = db.transaction('meta','readwrite');
+    tx.objectStore('meta').delete('dirHandle');
+  }catch(e){}
+}
+
+function renderTrackList(){
+  const el = $('#trackList');
+  el.innerHTML = '';
+  if(A.tracks.length===0){
+    el.innerHTML = '<div style="padding:12px;color:var(--tx3);font-size:12px">暂无曲目</div>';
+    return;
+  }
+  A.tracks.forEach((t,i)=>{
+    const d = document.createElement('div');
+    d.className = 'track-item'+(i===A.curTrack?' active':'');
+    d.textContent = t.name;
+    d.onclick = ()=> loadTrack(i);
+    el.appendChild(d);
+  });
+}
+
+function renderSubList(){
+  const el = $('#subList');
+  el.innerHTML = '';
+  if(A.subs.length===0){
+    el.innerHTML = '<div class="empty-state"><div class="big-icon">📝</div><div>导入带字幕的音频文件夹开始使用</div></div>';
+    return;
+  }
+  A.subs.forEach((s,i)=>{
+    const d = document.createElement('div');
+    d.className = 'sub-item'+(i===A.activeSub?' active':'')+(A.repeatOn&&i===A.repeatIndex?' repeat-target':'');
+    d.dataset.idx = i;
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'sub-time';
+    timeSpan.textContent = fmt(s.start);
+    d.appendChild(timeSpan);
+    const textSpan = document.createElement('span');
+    textSpan.innerHTML = s.text;
+    d.appendChild(textSpan);
+    d.onclick = ()=> clickSub(i);
+    el.appendChild(d);
+  });
+}
+
+function updateSubHighlight(){
+  const items = document.querySelectorAll('.sub-item');
+  items.forEach((el,i)=>{
+    el.classList.toggle('active', i===A.activeSub);
+    el.classList.toggle('repeat-target', A.repeatOn&&i===A.repeatIndex);
+  });
+  if(A.activeSub>=0 && A.activeSub<A.subs.length){
+    const el = items[A.activeSub];
+    if(el) el.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+}
+
+function updateCurrentSub(){
+  const el = $('#currentSub');
+  if(A.activeSub>=0 && A.activeSub<A.subs.length){
+    el.innerHTML = A.subs[A.activeSub].text;
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function renderProgressMarks(){
+  const bar = $('#progressBar');
+  bar.querySelectorAll('.progress-mark').forEach(m=>m.remove());
+  if(!audio.duration || A.subs.length===0) return;
+  const dur = audio.duration;
+  A.subs.forEach(s=>{
+    const pct = (s.start/dur)*100;
+    if(pct<0||pct>100) return;
+    const m = document.createElement('div');
+    m.className = 'progress-mark';
+    m.style.left = pct+'%';
+    bar.appendChild(m);
+  });
+}
+
+function updateProgress(ct){
+  if(!audio.duration) return;
+  const pct = (ct/audio.duration)*100;
+  $('#progressFill').style.width = pct+'%';
+  $('#timeCur').textContent = fmt(ct);
+  $('#timeDur').textContent = fmt(audio.duration);
+}
+
+function syncSubtitle(ct){
+  let found = -1;
+  for(let i=0;i<A.subs.length;i++){
+    if(ct>=A.subs[i].start && ct<A.subs[i].end){
+      found = i;
+      break;
+    }
+  }
+  if(found!==A.activeSub){
+    A.activeSub = found;
+    updateSubHighlight();
+    updateCurrentSub();
+  }
+}
+
+function clickSub(i){
+  if(i<0||i>=A.subs.length) return;
+  if(A.repeatOn){
+    engageRepeat(i);
+  } else {
+    audio.currentTime = A.subs[i].start;
+    if(audio.paused) audio.play();
+  }
+}
+
+function engageRepeat(i){
+  A.repeatIndex = i;
+  A.repeatStart = A.subs[i].start;
+  A.repeatEnd = A.subs[i].end;
+  audio.currentTime = A.repeatStart;
+  if(audio.paused) audio.play();
+  updateRepeatUI();
+  updateSubHighlight();
+}
+
+function toggleRepeat(){
+  if(A.repeatOn){
+    A.repeatOn = false;
+    A.repeatIndex = -1;
+    A.repeatStart = 0;
+    A.repeatEnd = 0;
+  } else {
+    A.repeatOn = true;
+    if(A.activeSub>=0){
+      engageRepeat(A.activeSub);
+    }
+  }
+  updateRepeatUI();
+  updateSubHighlight();
+}
+
+function updateRepeatUI(){
+  const btn = $('#btnRepeat');
+  btn.classList.toggle('repeat-on', A.repeatOn);
+}
+
+function prevSub(){
+  let target = A.activeSub - 1;
+  if(target<0) target = 0;
+  clickSub(target);
+}
+
+function nextSub(){
+  let target = A.activeSub + 1;
+  if(target>=A.subs.length) target = A.subs.length-1;
+  clickSub(target);
+}
+
+function togglePlay(){
+  if(!audio.src) return;
+  if(audio.paused) audio.play();
+  else audio.pause();
+}
+
+function updatePlayBtn(){
+  $('#btnPlay').textContent = audio.paused ? '▶' : '⏸';
+}
+
+function setSpeed(idx){
+  speedIdx = Math.max(0, Math.min(SPEEDS.length-1, idx));
+  audio.playbackRate = SPEEDS[speedIdx];
+  $('#speedLabel').textContent = SPEEDS[speedIdx]+'×';
+}
+
+function updateVolIcon(){
+  const v = audio.volume;
+  const el = $('#volIcon');
+  if(v===0||audio.muted) el.textContent = '🔇';
+  else if(v<0.5) el.textContent = '🔉';
+  else el.textContent = '🔊';
+}
+
+function toggleMute(){
+  if(audio.muted||audio.volume===0){
+    audio.muted = false;
+    audio.volume = A._lastVol||1;
+    $('#volSlider').value = audio.volume;
+  } else {
+    A._lastVol = audio.volume;
+    audio.muted = true;
+    $('#volSlider').value = 0;
+  }
+  updateVolIcon();
+}
+
+async function loadTrack(idx){
+  if(idx<0||idx>=A.tracks.length) return;
+  A.curTrack = idx;
+  const t = A.tracks[idx];
+
+  if(!t.url){
+    t.url = URL.createObjectURL(t.mp3File);
+  }
+  audio.src = t.url;
+
+  A.activeSub = -1;
+  A.repeatOn = false;
+  A.repeatIndex = -1;
+  A.repeatStart = 0;
+  A.repeatEnd = 0;
+  updateRepeatUI();
+
+  if(t.subFile){
+    A.subs = await parseSubFile(t.subFile);
+  } else {
+    A.subs = [];
+  }
+
+  $('#trackName').textContent = t.name;
+  renderTrackList();
+  renderSubList();
+  renderProgressMarks();
+  updateCurrentSub();
+  updatePlayBtn();
+
+  audio.play().catch(()=>{});
+}
+
+function addTrack(name, mp3File, subFile){
+  const nameLow = name.toLowerCase();
+  const existing = A.tracks.find(t=>t.name.toLowerCase()===nameLow);
+  if(existing){
+    if(subFile && !existing.subFile){
+      existing.subFile = subFile;
+    }
+    return;
+  }
+  A.tracks.push({name, mp3File, subFile: subFile||null, url: null});
+}
+
+async function processFiles(files){
+  const mp3s = [];
+  const srts = {};
+  const lrcs = {};
+
+  for(const f of files){
+    const name = f.name.toLowerCase();
+    const base = f.name.replace(/\.[^.]+$/,'');
+    const baseLow = base.toLowerCase();
+    if(name.endsWith('.mp3')) mp3s.push({file:f,base,baseLow});
+    else if(name.endsWith('.srt')) srts[baseLow] = f;
+    else if(name.endsWith('.lrc')) lrcs[baseLow] = f;
+  }
+
+  for(const m of mp3s){
+    const subFile = srts[m.baseLow] || lrcs[m.baseLow] || null;
+    addTrack(m.base, m.file, subFile);
+  }
+
+  if(mp3s.length===0 && files.length>0){
+    for(const f of files){
+      const name = f.name.toLowerCase();
+      if(name.endsWith('.srt')||name.endsWith('.lrc')){
+        if(A.curTrack>=0 && !A.tracks[A.curTrack].subFile){
+          A.tracks[A.curTrack].subFile = f;
+          A.subs = await parseSubFile(f);
+          renderSubList();
+          renderProgressMarks();
+        }
+      }
+    }
+  }
+
+  renderTrackList();
+
+  if(A.curTrack<0 && A.tracks.length>0){
+    loadTrack(0);
+  }
+}
+
+async function openDirectory(){
+  if(!window.showDirectoryPicker){
+    $('#dirInput').click();
+    return;
+  }
+  try{
+    const dh = await window.showDirectoryPicker({mode:'read'});
+    A._dirHandle = dh;
+    await saveDirHandle(dh);
+    $('#btnRestore').classList.add('show');
+    await loadFromDirHandle(dh);
+  }catch(e){
+    if(e.name!=='AbortError') console.error(e);
+  }
+}
+
+async function loadFromDirHandle(dh){
+  const files = [];
+  for await(const [name, entry] of dh.entries()){
+    if(entry.kind==='file'){
+      const f = await entry.getFile();
+      const low = f.name.toLowerCase();
+      if(low.endsWith('.mp3')||low.endsWith('.srt')||low.endsWith('.lrc')){
+        files.push(f);
+      }
+    }
+  }
+  await processFiles(files);
+}
+
+async function restoreFolder(){
+  const handle = await loadDirHandle();
+  if(!handle){
+    $('#btnRestore').classList.remove('show');
+    return;
+  }
+  try{
+    const perm = await handle.queryPermission({mode:'read'});
+    if(perm==='granted'){
+      await loadFromDirHandle(handle);
+      return;
+    }
+    const req = await handle.requestPermission({mode:'read'});
+    if(req==='granted'){
+      await loadFromDirHandle(handle);
+    } else {
+      alert('文件夹访问权限被拒绝，请重新打开文件夹。');
+      await clearDirHandle();
+      $('#btnRestore').classList.remove('show');
+    }
+  }catch(e){
+    alert('文件夹已不可用，请重新打开。');
+    await clearDirHandle();
+    $('#btnRestore').classList.remove('show');
+  }
+}
+
+function setupDragDrop(){
+  let dragCounter = 0;
+  const overlay = $('#dropOverlay');
+  document.addEventListener('dragenter', e=>{
+    e.preventDefault();
+    dragCounter++;
+    overlay.classList.add('show');
+  });
+  document.addEventListener('dragleave', e=>{
+    e.preventDefault();
+    dragCounter--;
+    if(dragCounter<=0){dragCounter=0;overlay.classList.remove('show');}
+  });
+  document.addEventListener('dragover', e=>e.preventDefault());
+  document.addEventListener('drop', async e=>{
+    e.preventDefault();
+    dragCounter=0;
+    overlay.classList.remove('show');
+    const items = e.dataTransfer.items;
+    const files = [];
+    if(items){
+      for(const item of items){
+        if(item.kind==='file'){
+          const entry = item.webkitGetAsEntry?.();
+          if(entry?.isDirectory){
+            await readDirectoryEntry(entry, files);
+          } else {
+            const f = item.getAsFile();
+            if(f) files.push(f);
+          }
+        }
+      }
+    } else {
+      for(const f of e.dataTransfer.files) files.push(f);
+    }
+    if(files.length) await processFiles(files);
+  });
+}
+
+async function readDirectoryEntry(dirEntry, files){
+  const reader = dirEntry.createReader();
+  const entries = await new Promise((res,rej)=>{
+    const results = [];
+    function readBatch(){
+      reader.readEntries(batch=>{
+        if(batch.length===0){res(results);return;}
+        results.push(...batch);
+        readBatch();
+      },rej);
+    }
+    readBatch();
+  });
+  for(const entry of entries){
+    if(entry.isFile){
+      const f = await new Promise((res,rej)=>entry.file(res,rej));
+      const low = f.name.toLowerCase();
+      if(low.endsWith('.mp3')||low.endsWith('.srt')||low.endsWith('.lrc')){
+        files.push(f);
+      }
+    }
+  }
+}
+
+function setupProgressClick(){
+  const wrap = $('#progressWrap');
+  wrap.addEventListener('click', e=>{
+    if(!audio.duration) return;
+    const rect = wrap.getBoundingClientRect();
+    const pct = (e.clientX - rect.left)/rect.width;
+    audio.currentTime = pct * audio.duration;
+  });
+}
+
+function setupKeyboard(){
+  document.addEventListener('keydown', e=>{
+    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    switch(e.key){
+      case ' ':
+        e.preventDefault();
+        togglePlay();
+        break;
+      case 'ArrowUp':
+      case 'ArrowLeft':
+        e.preventDefault();
+        prevSub();
+        break;
+      case 'ArrowDown':
+      case 'ArrowRight':
+        e.preventDefault();
+        nextSub();
+        break;
+      case 'r':
+      case 'R':
+        toggleRepeat();
+        break;
+      case 'm':
+      case 'M':
+        toggleMute();
+        break;
+      case ',':
+      case '<':
+        setSpeed(speedIdx-1);
+        break;
+      case '.':
+      case '>':
+        setSpeed(speedIdx+1);
+        break;
+    }
+  });
+}
+
+function setupPWA(){
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e=>{
+    e.preventDefault();
+    deferredPrompt = e;
+    $('#btnInstall').classList.add('show');
+  });
+  $('#btnInstall').onclick = async ()=>{
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    $('#btnInstall').classList.remove('show');
+  };
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  }
+}
+
+async function init(){
+  $('#btnOpenDir').onclick = openDirectory;
+  $('#btnOpenFiles').onclick = ()=> $('#fileInput').click();
+  $('#btnRestore').onclick = restoreFolder;
+  $('#btnPrev').onclick = prevSub;
+  $('#btnPlay').onclick = togglePlay;
+  $('#btnNext').onclick = nextSub;
+  $('#btnRepeat').onclick = toggleRepeat;
+  $('#btnSpeedDown').onclick = ()=> setSpeed(speedIdx-1);
+  $('#btnSpeedUp').onclick = ()=> setSpeed(speedIdx+1);
+  $('#volIcon').onclick = toggleMute;
+  $('#volSlider').oninput = e=>{
+    const v = +e.target.value;
+    audio.muted = false;
+    audio.volume = v;
+    if(v>0) A._lastVol = v;
+    updateVolIcon();
+  };
+
+  audio.addEventListener('timeupdate', ()=>{
+    const ct = audio.currentTime;
+    if(A.repeatOn && A.repeatIndex>=0){
+      if(ct>=A.repeatEnd){
+        audio.currentTime = A.repeatStart;
+        return;
+      }
+    }
+    updateProgress(ct);
+    syncSubtitle(ct);
+  });
+
+  audio.addEventListener('loadedmetadata', ()=>{
+    updateProgress(0);
+    renderProgressMarks();
+  });
+
+  audio.addEventListener('play', updatePlayBtn);
+  audio.addEventListener('pause', updatePlayBtn);
+  audio.addEventListener('ended', ()=>{
+    updatePlayBtn();
+  });
+
+  audio.volume = 1;
+  updateVolIcon();
+
+  $('#fileInput').onchange = async e=>{
+    const files = Array.from(e.target.files);
+    if(files.length) await processFiles(files);
+    e.target.value = '';
+  };
+
+  $('#dirInput').onchange = async e=>{
+    const files = Array.from(e.target.files);
+    if(files.length) await processFiles(files);
+    e.target.value = '';
+  };
+
+  const handle = await loadDirHandle();
+  if(handle){
+    $('#btnRestore').classList.add('show');
+  }
+
+  setupDragDrop();
+  setupProgressClick();
+  setupKeyboard();
+  setupPWA();
+  renderTrackList();
+  renderSubList();
+}
+
+init();
+})();
+</script>
+</body>
+</html>

@@ -1,7 +1,0 @@
-/build/
-/build-release/
-/out/
-/.vs/
-*.user
-*.suo
-*.VC.db
